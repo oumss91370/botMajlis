@@ -108,7 +108,7 @@ Ils sont tous deux des étudiants avancés en sciences islamiques qui ont l'auto
 
 S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti francophone\\.
 
-📌 **[🔗 Rejoindre le groupe Q\\&R Malikiyyah](https://t.me/+ZBL9frEFpvYyNThh)**
+📌 **Lien d'invitation Q&R Malikiyyah:** https://t.me/+ZBL9frEFpvYyNThh
 
 📌 *__RÈGLES DU GROUPE__*
 
