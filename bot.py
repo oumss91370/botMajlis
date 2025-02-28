@@ -416,6 +416,43 @@ async def reopen_group_at_midnight(chat_id, context, delay):
     except Exception as e:
         logging.error(f"Erreur lors de la réouverture du groupe : {e}")
 
+async def ban_user(update: Update, context: CallbackContext) -> None:
+    """Bannit un utilisateur du groupe si un admin utilise /ban en réponse à un message."""
+    if update.message and update.message.reply_to_message:
+        admin = update.message.from_user
+        chat_id = update.message.chat_id
+        target_user = update.message.reply_to_message.from_user
+
+        # Vérifier si l'utilisateur qui exécute la commande est un admin
+        chat_member = await context.bot.get_chat_member(chat_id, admin.id)
+        if chat_member.status not in ["administrator", "creator"]:
+            await update.message.reply_text("❌ Seuls les administrateurs peuvent utiliser cette commande.")
+            return
+
+        try:
+            # Bannir l'utilisateur
+            await context.bot.ban_chat_member(chat_id, target_user.id)
+
+            # Supprimer le message de l'admin contenant la commande /ban
+            await update.message.delete()
+
+            # Obtenir la mention correcte de l'utilisateur banni
+            mention = get_mention(target_user)
+
+            # Envoyer un message de confirmation dans le groupe
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🚫 {mention} a été banni du groupe par un administrateur.",
+                parse_mode="MarkdownV2"
+            )
+
+        except Exception as e:
+            logging.error(f"Erreur lors de l'exclusion de l'utilisateur : {e}")
+            await update.message.reply_text("❌ Impossible de bannir cet utilisateur.")
+
+    else:
+        await update.message.reply_text("❌ Utilisation incorrecte. Répondez à un message avec `/ban` pour bannir un utilisateur.")
+
 
 # ✅ Fonction principale
 def main():
@@ -447,6 +484,8 @@ def main():
     # app.add_handler(CommandHandler("10", close_group_for_6h))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_and_close_group))
+
+    app.add_handler(CommandHandler("ban", ban_user))
 
     #boutton
     app.add_handler(CallbackQueryHandler(button_click, pattern=r"^accept_\d+$"))
