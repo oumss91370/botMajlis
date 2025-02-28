@@ -1,7 +1,9 @@
-import datetime
 import os
 from dotenv import load_dotenv
+import aiocron
+import asyncio
 import re
+import datetime
 import asyncio
 from telegram import ChatPermissions
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
@@ -44,6 +46,14 @@ async def start(update: Update, context: CallbackContext) -> None:
 # ✅ Fonction pour obtenir un `@username` même si l'utilisateur n'en a pas
 
 
+group_ids = set()  # Stocker dynamiquement les ID des groupes
+
+async def track_group(update: Update, context: CallbackContext) -> None:
+    """Ajoute dynamiquement les groupes où le bot est présent."""
+    chat = update.message.chat
+    if chat.type in ["group", "supergroup"]:
+        group_ids.add(chat.id)
+        logging.info(f"📌 Le bot a été ajouté dans le groupe : {chat.title} (ID: {chat.id})")
 
 def get_mention(user):
     """Retourne `@username` si disponible, sinon mentionne via `tg://user?id=USER_ID`."""
@@ -205,10 +215,7 @@ async def check_acceptance(update: Update, context: CallbackContext) -> None:
 
 
 # Fonction pour vérifier si un message respecte le bon format de numérotation
-import re
 
-
-import re
 
 async def check_question_number(update: Update, context: CallbackContext) -> None:
     """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre croissant."""
@@ -464,6 +471,36 @@ async def ban_user(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("❌ Utilisation incorrecte. Répondez à un message avec `/ban` pour bannir un utilisateur.")
 
 
+import aiocron
+import asyncio
+import datetime
+
+# Remplace `CHAT_ID` par l'ID de ton groupe
+CHAT_ID = -1912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
+
+async def send_daily_message(context: CallbackContext):
+    """Envoie un message quotidien à 00h01."""
+    message = (
+        "Nous nous retrouvons ce jour par la Grâce d'Allah dans Q&R MALIKIYYAH, "
+        "groupe dédié aux questions pratiques de fiqh, de 'aqiidah et de tasawwuf de la communauté musulmane ⭐️\n\n"
+        "📌 **RAPPEL GÉNÉRAL** 📌\n\n"
+        
+        "▪️ Respectez les [règles du groupe](https://t.me/c/1912372093/7898) \n"
+        "▪️ Et surtout : étudiez la Science !\n"
+        "👉 Remplissez cette obligation en suivant [des cours](https://majlisalfatih.weebly.com/cours.html)\n\n"
+        "Baraak Allaahu fiikum !"
+    )
+
+    try:
+        await context.bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+        logging.info("✅ Message quotidien envoyé avec succès.")
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'envoi du message quotidien : {e}")
+
+# ⏳ Planifier l'envoi du message à 00h01 tous les jours
+aiocron.crontab('1 0 * * *', func=send_daily_message, args=[None])
+
+
 # ✅ Fonction principale
 def main():
 
@@ -472,6 +509,8 @@ def main():
     logging.info("Démarrage du bot...")
 
     app = Application.builder().token(TOKEN).build()
+#message quotidien
+    asyncio.create_task(send_daily_message(app))
 
     #
     app.add_handler(CommandHandler("start", start))
