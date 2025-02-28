@@ -94,9 +94,10 @@ Exemple : \\#625 1 L'urine de bébé est\\-elle impure \\?
 Trouver des réponses à vos questions de fiqh, de 'aqiidah et de tasawwuf touchant à votre pratique\\.
 
 ⚠️ Ce groupe *n’est pas un substitut* à l’apprentissage de votre religion\\.
-📌 **[Clique ici pour accéder aux cours](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
+📌 **[Pour suivre des cours cliquez ici](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
 
 📌 *__Qui répond aux questions ici__ \\?*
+
 • **Abdullah Mathieu Gallant**
 • **Saifoullah Abu Muhammad**
 • **Admin\\(s\\) \\( @ibtisaamou pour les sœurs \\)**
@@ -107,27 +108,25 @@ Ils sont tous deux des étudiants avancés en sciences islamiques qui ont l'auto
 
 S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti francophone\\.
 
-📌 **[🔗 Rejoindre le groupe Q\\&R Malikiyyah](https://t.me/+ZBL9frEFpvYyNThh)**
+📌 **Lien d'invitation Q&R Malikiyyah:https://t.me/+ZBL9frEFpvYyNThh**
 
 📌 *__RÈGLES DU GROUPE__*
 
-• ⚠️ *Une seule question par membre par jour* ⚠️
-• ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️
+    • ⚠️ *Une seule question par membre par jour* ⚠️
+    • ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️
 • Les enseignants ont besoin de faire des recherches pour certaines questions, aussi par respect nous vous demandons de ne pas les relancer systématiquement mais de patienter 24h avant de le faire\\.
-• Pas de questions théoriques sans application pratique \\(ex\\. hukm de manger de la sirène\\)\\.
-• Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques\\.
-• **__Interdit de partager les réponses sans permission__**
-• Pas de débats ni d’échanges entre les membres\\.
-• Il n'est pas permis de répondre à la place des admins\\.
+    • Pas de questions théoriques sans application pratique \\(ex\\. hukm de manger de la sirène\\)\\.
+    • Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques\\.
+    • **__Interdit de partager les réponses sans permission__**
+    • Pas de débats ni d’échanges entre les membres\\.
+    • Il n'est pas permis de répondre à la place des admins\\.
 
 ⚠️ *__Non respect \\= EXPULSION__*
 
 📌 *__À TITRE INFORMATIF__*
 
-• Les réponses données ici ne sont pas des fatwas, mais plutôt l’avis retenu de l’école malékite\\.
-📌 **[Posez vos questions à l'IFI](https://institut-francophone-iftaa.com/question)** si vous avez besoin d'une fatwa\\.
-• Nous déclinons toute responsabilité si les gens comprennent mal cela et mettent ces réponses en pratique au lieu de s’adresser à un mufti\\.
-• *Pas de réponse aux questions sensibles, contactez* @questionsprivees
+📌 **Veuillez vous adresser à [l'IFI](https://institut-francophone-iftaa.com/question)** si vous avez besoin d'une fatwa\\.
+• *Pas de réponse aux questions sensibles, les envoyez à * @questionsprivees
 
 📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
 """
