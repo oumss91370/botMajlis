@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 import aiocron
-import asyncio
 import re
 import datetime
 import asyncio
@@ -471,9 +470,6 @@ async def ban_user(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("❌ Utilisation incorrecte. Répondez à un message avec `/ban` pour bannir un utilisateur.")
 
 
-import aiocron
-import asyncio
-import datetime
 
 # Remplace `CHAT_ID` par l'ID de ton groupe
 CHAT_ID = -1912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
