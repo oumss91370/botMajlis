@@ -205,8 +205,14 @@ async def check_acceptance(update: Update, context: CallbackContext) -> None:
 
 
 # Fonction pour vérifier si un message respecte le bon format de numérotation
+import re
+
+
+import re
+
 async def check_question_number(update: Update, context: CallbackContext) -> None:
-    """Vérifie si un message est bien numéroté et suit l'ordre des questions."""
+    """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre croissant."""
+
     if update.message:
         user = update.message.from_user
         message_text = update.message.text.strip()  # Supprimer les espaces inutiles
@@ -224,24 +230,28 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
             if chat_member.status in ["administrator", "creator"]:
                 return  # Les admins ne sont pas concernés
 
-            # ✅ Vérifier si le message commence par #
-            match = re.match(r"#(\d+)", message_text)
+            # ✅ Vérifier si un `#` est présent n'importe où dans le message
+            match = re.search(r"#(\d+)", message_text)  # Recherche un # suivi d'un nombre
             if not match:
-                await update.message.reply_text(f"{mention} Veuillez numéroter votre question s'il vous plaît.")
+                await update.message.reply_text(f"{mention} Veuillez inclure un numéro de question avec `#`.")
                 return
 
-            question_number = int(match.group(1))  # Extraire le numéro après #
+            question_number = int(match.group(1))  # Extraire le numéro après `#`
 
-            # ✅ Vérifier si le numéro suit bien l'ordre croissant
+            # ✅ Vérifier si un numéro a déjà été enregistré pour ce groupe
             if chat_id in last_question_number:
                 expected_number = last_question_number[chat_id] + 1
-                if question_number != expected_number:
-                    await update.message.reply_text(
-                        f"{mention} Veuillez numéroter votre question avec le #{expected_number} s'il vous plaît."
-                    )
-                    return
             else:
-                expected_number = 1  # Premier message dans le groupe
+                # 🟢 Si le bot arrive dans un groupe en cours, il ne sait pas le dernier numéro
+                expected_number = question_number  # On suppose que le premier numéro vu est correct
+                last_question_number[chat_id] = question_number  # On initialise avec la valeur détectée
+
+            # ✅ Vérifier que l'utilisateur suit bien la séquence de numérotation
+            if question_number != expected_number:
+                await update.message.reply_text(
+                    f"{mention} Veuillez numéroter votre question avec `#{expected_number}` s'il vous plaît."
+                )
+                return
 
             # ✅ Mettre à jour le dernier numéro utilisé dans ce groupe
             last_question_number[chat_id] = question_number
