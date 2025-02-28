@@ -87,14 +87,14 @@ async def welcome_new_member(update: Update, context: CallbackContext) -> None:
 🎉 *Bienvenue {mention} dans le groupe* *Q\\&R Malikiyyah* \\! 🎊
 
 📌 *__Comment poser une question__ \\?*
-\\#N° \\[suivre l'ordre\\] \\+ N° \\[suivre l'ordre du jour\\] \\+ Question  
+\\#N° \\[suivre l'ordre\\] \\+ N° \\[suivre l'ordre du jour\\] \\+ Question
 Exemple : \\#625 1 L'urine de bébé est\\-elle impure \\?
 
 📌 *__OBJECTIF DU GROUPE__* :
 Trouver des réponses à vos questions de fiqh, de 'aqiidah et de tasawwuf touchant à votre pratique\\.
 
 ⚠️ Ce groupe *n’est pas un substitut* à l’apprentissage de votre religion\\.
-📌 **[Pour suivre des cours cliquez ici](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
+📌 **[Clique ici pour accéder aux cours](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
 
 📌 *__Qui répond aux questions ici__ \\?*
 • **Abdullah Mathieu Gallant**
@@ -107,28 +107,29 @@ Ils sont tous deux des étudiants avancés en sciences islamiques qui ont l'auto
 
 S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti francophone\\.
 
-📌 **Lien d'invitation Q&R Malikiyyah: https://t.me/+ZBL9frEFpvYyNThh**
+📌 **[🔗 Rejoindre le groupe Q\\&R Malikiyyah](https://t.me/+ZBL9frEFpvYyNThh)**
 
-📌 *__RÈGLES DU GROUPE__*  
+📌 *__RÈGLES DU GROUPE__*
 
-• ⚠️ *Une seule question par membre par jour* ⚠️  
-• ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️  
-• Les enseignants ont besoin de faire des recherches pour certaines questions, aussi par respect nous vous demandons de ne pas les relancer systématiquement mais de patienter 24h avant de le faire\\.  
-• Pas de questions théoriques sans application pratique \\(ex\\. hukm de manger de la sirène\\)\\.  
-• Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques\\.  
-• **__Interdit de partager les réponses sans permission__**  
-• Pas de débats ni d’échanges entre les membres\\.  
-• Il n'est pas permis de répondre à la place des admins\\.  
+• ⚠️ *Une seule question par membre par jour* ⚠️
+• ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️
+• Les enseignants ont besoin de faire des recherches pour certaines questions, aussi par respect nous vous demandons de ne pas les relancer systématiquement mais de patienter 24h avant de le faire\\.
+• Pas de questions théoriques sans application pratique \\(ex\\. hukm de manger de la sirène\\)\\.
+• Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques\\.
+• **__Interdit de partager les réponses sans permission__**
+• Pas de débats ni d’échanges entre les membres\\.
+• Il n'est pas permis de répondre à la place des admins\\.
 
-⚠️ *__Non respect \\= EXPULSION__*  
+⚠️ *__Non respect \\= EXPULSION__*
 
-📌 *__À TITRE INFORMATIF__*  
+📌 *__À TITRE INFORMATIF__*
 
-**Veuillez vous adresser à l'IFI https://institut-francophone-iftaa.com/question** si vous avez besoin d'une fatwa\\.  
-• Nous déclinons toute responsabilité si les gens comprennent mal cela et mettent ces réponses en pratique au lieu de s’adresser à un mufti\\.  
-• *Pas de réponse aux questions sensibles, contactez* @questionsprivees  
+• Les réponses données ici ne sont pas des fatwas, mais plutôt l’avis retenu de l’école malékite\\.
+📌 **[Posez vos questions à l'IFI](https://institut-francophone-iftaa.com/question)** si vous avez besoin d'une fatwa\\.
+• Nous déclinons toute responsabilité si les gens comprennent mal cela et mettent ces réponses en pratique au lieu de s’adresser à un mufti\\.
+• *Pas de réponse aux questions sensibles, contactez* @questionsprivees
 
-📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**  
+📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
 """
 
 
