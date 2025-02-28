@@ -87,7 +87,7 @@ async def welcome_new_member(update: Update, context: CallbackContext) -> None:
 🎉 *Bienvenue {mention} dans le groupe* *Q\\&R Malikiyyah* \\! 🎊
 
 📌 *__Comment poser une question__ \\?*
-\\#N° \\[suivre l'ordre\\] \\+ N° \\[suivre l'ordre du jour\\] \\+ Question
+\\#N° \\[suivre l'ordre\\] \\+ N° \\[suivre l'ordre du jour\\] \\+ Question  
 Exemple : \\#625 1 L'urine de bébé est\\-elle impure \\?
 
 📌 *__OBJECTIF DU GROUPE__* :
@@ -101,7 +101,7 @@ Trouver des réponses à vos questions de fiqh, de 'aqiidah et de tasawwuf touch
 • **Saifoullah Abu Muhammad**
 • **Admin\\(s\\) \\( @ibtisaamou pour les sœurs \\)**
 
-📌 **[Pour connaître leur cursus, leurs shuyuukh, clique ici](https://www.notion.so/majlisalfatih/46691c76bd6e441483fcdd211d5880df?v=ec736494d7cd446783c655cb0dbb6e58)**
+📌 **[Pour connaître leur cursus, leurs shuyuukh, clique ici](https://www.notion.so/majlisalfatih/46691c76bd6e441483fcdd211d5880df\\?v\\=ec736494d7cd446783c655cb0dbb6e58)**
 
 Ils sont tous deux des étudiants avancés en sciences islamiques qui ont l'autorisation de leurs shuyûkh pour enseigner et répondre aux questions, mais ils ne pourront pas avoir réponse à tout\\.
 
@@ -109,27 +109,28 @@ S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti franco
 
 📌 **Lien d'invitation Q&R Malikiyyah: https://t.me/+ZBL9frEFpvYyNThh**
 
-📌 *__RÈGLES DU GROUPE__*
+📌 *__RÈGLES DU GROUPE__*  
 
-• ⚠️ *Une seule question par membre par jour* ⚠️
-• ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️
-• Les enseignants ont besoin de faire des recherches pour certaines questions, aussi par respect nous vous demandons de ne pas les relancer systématiquement mais de patienter 24h avant de le faire\\.
-• Pas de questions théoriques sans application pratique \\(ex\\. hukm de manger de la sirène\\)\\.
-• Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques\\.
-• **__Interdit de partager les réponses sans permission__**
-• Pas de débats ni d’échanges entre les membres\\.
-• Il n'est pas permis de répondre à la place des admins\\.
+• ⚠️ *Une seule question par membre par jour* ⚠️  
+• ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️  
+• Les enseignants ont besoin de faire des recherches pour certaines questions, aussi par respect nous vous demandons de ne pas les relancer systématiquement mais de patienter 24h avant de le faire\\.  
+• Pas de questions théoriques sans application pratique \\(ex\\. hukm de manger de la sirène\\)\\.  
+• Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques\\.  
+• **__Interdit de partager les réponses sans permission__**  
+• Pas de débats ni d’échanges entre les membres\\.  
+• Il n'est pas permis de répondre à la place des admins\\.  
 
-⚠️ *__Non respect \\= EXPULSION__*
+⚠️ *__Non respect \\= EXPULSION__*  
 
-📌 *__À TITRE INFORMATIF__*
+📌 *__À TITRE INFORMATIF__*  
 
-**Veuillez vous adresser à l'IFI https://institut-francophone-iftaa.com/question** si vous avez besoin d'une fatwa\\.
-• Nous déclinons toute responsabilité si les gens comprennent mal cela et mettent ces réponses en pratique au lieu de s’adresser à un mufti\\.
-• *Pas de réponse aux questions sensibles, contactez* @questionsprivees
+**Veuillez vous adresser à l'IFI https://institut-francophone-iftaa.com/question** si vous avez besoin d'une fatwa\\.  
+• Nous déclinons toute responsabilité si les gens comprennent mal cela et mettent ces réponses en pratique au lieu de s’adresser à un mufti\\.  
+• *Pas de réponse aux questions sensibles, contactez* @questionsprivees  
 
-📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
+📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**  
 """
+
 
                 # ✅ Envoyer le message avec le bouton "Accepter"
                 message = await update.message.reply_text(rules_message, parse_mode="MarkdownV2", reply_markup=reply_markup)
@@ -315,7 +316,8 @@ async def remove_waswas_message(update: Update, context: CallbackContext) -> Non
             # ✅ Envoyer un message expliquant la suppression
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"⚠️ {mention}, *votre message a été supprimé, car il pourrait causer des wasâwis aux autres membres (doutes maladifs nuisant à la pratique religieuse).*\n\n"
+                text=f"⚠️ {mention}, *votre message a été supprimé, car il pourrait causer des wasâwis aux autres membres* \n\n"
+                     f"(doutes maladifs nuisant à la pratique religieuse).\n\n"
                      "📌 *Veuillez poser votre question en privé à  @questionsprivees.*\n"
                      "Merci de votre compréhension.",
                 parse_mode="Markdown"
