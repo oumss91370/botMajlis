@@ -101,7 +101,7 @@ Trouver des réponses à vos questions de fiqh, de 'aqiidah et de tasawwuf touch
 • **Saifoullah Abu Muhammad**
 • **Admin\\(s\\) \\( @ibtisaamou pour les sœurs \\)**
 
-📌 **[Pour connaître leur cursus, leurs shuyuukh, clique ici](https://www.notion.so/majlisalfatih/46691c76bd6e441483fcdd211d5880df\\?v\\=ec736494d7cd446783c655cb0dbb6e58)**
+📌 **[Pour connaître leur cursus, leurs shuyuukh, clique ici](https://www.notion.so/majlisalfatih/46691c76bd6e441483fcdd211d5880df?v=ec736494d7cd446783c655cb0dbb6e58)**
 
 Ils sont tous deux des étudiants avancés en sciences islamiques qui ont l'autorisation de leurs shuyûkh pour enseigner et répondre aux questions, mais ils ne pourront pas avoir réponse à tout\\.
 
