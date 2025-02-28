@@ -6,7 +6,7 @@ app = Flask(' ')
 
 @app.route('/')
 def home():
-    return
+    return "le bot est en ligne"
 
 
 def run():
@@ -16,3 +16,4 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+

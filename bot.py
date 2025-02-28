@@ -94,7 +94,7 @@ Exemple : \\#625 1 L'urine de bébé est\\-elle impure \\?
 Trouver des réponses à vos questions de fiqh, de 'aqiidah et de tasawwuf touchant à votre pratique\\.
 
 ⚠️ Ce groupe *n’est pas un substitut* à l’apprentissage de votre religion\\.
-📌 **[Clique ici pour accéder aux cours](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
+📌 **[Pour suivre des cours cliquez ici](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
 
 📌 *__Qui répond aux questions ici__ \\?*
 • **Abdullah Mathieu Gallant**
@@ -107,7 +107,7 @@ Ils sont tous deux des étudiants avancés en sciences islamiques qui ont l'auto
 
 S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti francophone\\.
 
-📌 **[🔗 Rejoindre le groupe Q\\&R Malikiyyah](https://t.me/+ZBL9frEFpvYyNThh)**
+📌 **Lien d'invitation Q&R Malikiyyah: https://t.me/+ZBL9frEFpvYyNThh**
 
 📌 *__RÈGLES DU GROUPE__*
 
@@ -124,12 +124,11 @@ S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti franco
 
 📌 *__À TITRE INFORMATIF__*
 
-• Les réponses données ici ne sont pas des fatwas, mais plutôt l’avis retenu de l’école malékite\\.
-📌 **[Posez vos questions à l'IFI](https://institut-francophone-iftaa.com/question)** si vous avez besoin d'une fatwa\\.
+**Veuillez vous adresser à l'IFI https://institut-francophone-iftaa.com/question** si vous avez besoin d'une fatwa\\.
 • Nous déclinons toute responsabilité si les gens comprennent mal cela et mettent ces réponses en pratique au lieu de s’adresser à un mufti\\.
 • *Pas de réponse aux questions sensibles, contactez* @questionsprivees
 
-📌 **✅ {mention}, pour continuer, veuillez répondre à ce message en écrivant "accepter"\\.**
+📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
 """
 
                 # ✅ Envoyer le message avec le bouton "Accepter"
@@ -277,7 +276,7 @@ async def remove_off_topic(update: Update, context: CallbackContext) -> None:
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"⚠️ {mention}, *votre message a été supprimé car il est hors sujet.*\n\n"
-                     "📌 **Seules les questions liées au fiqh et à la spiritualité sont autorisées.**\n"
+                     "📌 **Seules les questions liées à la croyance, au fiqh malikite et à la spiritualité qui touchent votre quotidien sont autorisées.**\n"
                      "Merci de respecter les règles du groupe.",
                 parse_mode="Markdown"
 
@@ -316,9 +315,8 @@ async def remove_waswas_message(update: Update, context: CallbackContext) -> Non
             # ✅ Envoyer un message expliquant la suppression
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"⚠️ {mention}, *votre message a été supprimé car il pouvait causer des waswas.*\n\n"
-                     "(Doutes excessifs qui peuvent nuire à la pratique religieuse).\n\n"
-                     "📌 *Si votre question est sérieuse et légitime, vous pouvez la poser en privé à @questionsprivees.*\n"
+                text=f"⚠️ {mention}, *votre message a été supprimé, car il pourrait causer des wasâwis aux autres membres (doutes maladifs nuisant à la pratique religieuse).*\n\n"
+                     "📌 *Veuillez poser votre question en privé à  @questionsprivees.*\n"
                      "Merci de votre compréhension.",
                 parse_mode="Markdown"
             )
