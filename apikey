@@ -44,3 +44,33 @@ S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti franco
 
 📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
 """
+
+
+
+
+
+
+
+######################  daily msg  ######################
+
+async def send_daily_message(context: CallbackContext):
+    """Envoie un message quotidien à 00h01."""
+    message = (
+        "Nous nous retrouvons ce jour par la Grâce d'Allah dans Q&R MALIKIYYAH, "
+        "groupe dédié aux questions pratiques de fiqh, de 'aqiidah et de tasawwuf de la communauté musulmane ⭐️\n\n"
+        "📌 **RAPPEL GÉNÉRAL** 📌\n\n"
+
+        "▪️ Respectez les [règles du groupe](https://t.me/c/1912372093/7898) \n"
+        "▪️ Et surtout : étudiez la Science !\n"
+        "👉 Remplissez cette obligation en suivant [des cours](https://majlisalfatih.weebly.com/cours.html)\n\n"
+        "Baraak Allaahu fiikum !"
+    )
+
+    try:
+        await context.bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+        logging.info("✅ Message quotidien envoyé avec succès.")
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'envoi du message quotidien : {e}")
+
+# ⏳ Planifier l'envoi du message à 00h01 tous les jours
+aiocron.crontab('1 0 * * *', func=send_daily_message, args=[None])

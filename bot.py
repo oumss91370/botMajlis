@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 import aiocron
-import re
 import datetime
 import asyncio
 from telegram import ChatPermissions
@@ -10,6 +9,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, CallbackQueryHandler
 from keep_alive import keep_alive
+import re
 
 
 load_dotenv()
@@ -180,6 +180,44 @@ async def button_click(update: Update, context: CallbackContext) -> None:
         logging.error(f"Erreur lors de la suppression des messages : {e}")
 
 
+async def already_answered(update: Update, context: CallbackContext) -> None:
+    """Répond automatiquement qu'une question a déjà été traitée lorsque /dr est utilisé en réponse."""
+
+    if update.message and update.message.reply_to_message:
+        admin = update.message.from_user
+        chat_id = update.message.chat_id
+        message_to_reply = update.message.reply_to_message
+
+        # ✅ Vérifier si l'utilisateur est un admin
+        chat_member = await context.bot.get_chat_member(chat_id, admin.id)
+        if chat_member.status not in ["administrator", "creator"]:
+            await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+            return
+
+        try:
+            # ✅ Obtenir la mention de l'utilisateur
+            mention = get_mention(message_to_reply.from_user)
+
+            # ✅ Envoyer la réponse automatique
+            await context.bot.send_message(
+                chat_id=chat_id,
+                reply_to_message_id=message_to_reply.message_id,
+                text=f"⚠️ {mention}, votre question a déjà été traitée.\n\n"
+                     "🔍 *Merci de bien vouloir chercher les mots-clés dans la fonction* **'Recherche'**.\n"
+                     " Baraakallah u fik !",
+                parse_mode="Markdown"
+            )
+
+            # ✅ Supprimer la commande /dr après envoi du message
+            await update.message.delete()
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de l'envoi du message /dr : {e}")
+            await update.message.reply_text("❌ Impossible d'envoyer le message.")
+
+
+# ✅ Ajouter la commande au gestionnaire
+
 
 async def check_acceptance(update: Update, context: CallbackContext) -> None:
     """Gère la validation des règles et supprime le message après acceptation."""
@@ -216,6 +254,13 @@ async def check_acceptance(update: Update, context: CallbackContext) -> None:
 # Fonction pour vérifier si un message respecte le bon format de numérotation
 
 
+import time  # 📌 Pour gérer les timestamps
+
+# Dictionnaire pour stocker le dernier message d'un utilisateur
+user_last_question_time = {}
+
+
+
 async def check_question_number(update: Update, context: CallbackContext) -> None:
     """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre croissant."""
 
@@ -224,43 +269,57 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         message_text = update.message.text.strip()  # Supprimer les espaces inutiles
         chat_id = update.message.chat_id
         mention = get_mention(user)  # ✅ Utilisation de get_mention()
+        user_id = user.id  # ID utilisateur pour suivi
+        current_time = time.time()  # ⏳ Récupérer le timestamp actuel
 
-        # ✅ Ignorer les messages contenant "accepter" (toutes variations de casse)
-        if message_text.lower() == "accepter":
+        # ✅ Vérifier si le message est une réponse à un autre message → Ignorer
+        if update.message.reply_to_message:
+            return  # Ne pas corriger si c'est une réponse à un autre message
+
+        # ✅ Vérifier si l'utilisateur est un admin (ne pas le corriger)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+            if chat_member.status in ["administrator", "creator","owner"]:
+                return  # Ignorer les admins
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification admin pour {user_id} : {e}")
+
+        # ✅ Vérifier si l'utilisateur a récemment posé une question (moins de 15 min)
+        last_time = user_last_question_time.get(user_id, 0)
+        if current_time - last_time < 40000:  # ⏳ Moins de 15 minutes (900 secondes)
+            return  # Ignorer les messages sans # s'il a déjà posé une question récemment
+
+        # ✅ Vérifier si un `#` est présent dans le message
+        match = re.search(r"#(\d+)", message_text)
+
+        # ✅ Déterminer le numéro attendu
+        expected_number = last_question_number.get(chat_id, 0) + 1
+
+        if not match:
+            await update.message.reply_text(
+                f"{mention} Veuillez inclure un numéro de question avec `#{expected_number}`."
+            )
             return
 
-        # ✅ Vérifier que ce n'est pas une réponse à un autre message
-        if update.message.reply_to_message is None:
-            # ✅ Vérifier si l'utilisateur est un admin
-            chat_member = await context.bot.get_chat_member(chat_id, user.id)
-            if chat_member.status in ["administrator", "creator"]:
-                return  # Les admins ne sont pas concernés
+        # ✅ Extraire le numéro de question
+        question_number = int(match.group(1))
 
-            # ✅ Vérifier si un `#` est présent n'importe où dans le message
-            match = re.search(r"#(\d+)", message_text)  # Recherche un # suivi d'un nombre
-            if not match:
-                await update.message.reply_text(f"{mention} Veuillez inclure un numéro de question avec `#`.")
-                return
-
-            question_number = int(match.group(1))  # Extraire le numéro après `#`
-
-            # ✅ Vérifier si un numéro a déjà été enregistré pour ce groupe
-            if chat_id in last_question_number:
-                expected_number = last_question_number[chat_id] + 1
-            else:
-                # 🟢 Si le bot arrive dans un groupe en cours, il ne sait pas le dernier numéro
-                expected_number = question_number  # On suppose que le premier numéro vu est correct
-                last_question_number[chat_id] = question_number  # On initialise avec la valeur détectée
-
-            # ✅ Vérifier que l'utilisateur suit bien la séquence de numérotation
-            if question_number != expected_number:
-                await update.message.reply_text(
-                    f"{mention} Veuillez numéroter votre question avec `#{expected_number}` s'il vous plaît."
-                )
-                return
-
-            # ✅ Mettre à jour le dernier numéro utilisé dans ce groupe
+        # ✅ Si c'est la première question du groupe, accepter sans erreur
+        if chat_id not in last_question_number:
             last_question_number[chat_id] = question_number
+            user_last_question_time[user_id] = current_time  # ⏳ Met à jour le timestamp de l'utilisateur
+            return
+
+        # ✅ Vérifier que la question suit bien la séquence de numérotation
+        if question_number != expected_number:
+            await update.message.reply_text(
+                f"{mention} Veuillez numéroter votre question avec `#{expected_number}` s'il vous plaît."
+            )
+            return
+
+        # ✅ Mettre à jour le dernier numéro utilisé dans ce groupe
+        last_question_number[chat_id] = question_number
+        user_last_question_time[user_id] = current_time  # ⏳ Met à jour le timestamp de l'utilisateur
 
     await check_and_close_group(update, context)  # Vérifier si la limite de 10 questions est atteinte
 
@@ -406,6 +465,48 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
         logging.error(f"Erreur lors de la fermeture du groupe : {e}")
 
 
+async def send_fasting_info(update: Update, context: CallbackContext) -> None:
+    """Envoie une réponse automatique sur le fiqh du jeûne lorsque /jeune est utilisé en réponse."""
+
+    if update.message and update.message.reply_to_message:
+        admin = update.message.from_user
+        chat_id = update.message.chat_id
+        message_to_reply = update.message.reply_to_message
+
+        # ✅ Vérifier si l'utilisateur est un admin
+        chat_member = await context.bot.get_chat_member(chat_id, admin.id)
+        if chat_member.status not in ["administrator", "creator"]:
+            await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+            return
+
+        try:
+            # ✅ Obtenir la mention de l'utilisateur
+            mention = get_mention(message_to_reply.from_user)
+
+            # ✅ Envoyer la réponse automatique
+            await context.bot.send_message(
+                chat_id=chat_id,
+                reply_to_message_id=message_to_reply.message_id,
+                text=f"⚠️ {mention}, votre question laisse entendre que vous n'avez pas encore étudié "
+                     "le fiqh du jeûne de façon systématique en suivant un cours sur le sujet ou, du moins, "
+                     "qu'une révision du sujet vous serait bénéfique.\n\n"
+                     "📌 *Voici un mini-cours gratuit sans inscription qui vous permettra de vous acquitter de cette obligation :* \n"
+                     "👉 [Épitre du Jeûne](https://majlisalfatih.weebly.com/epitre-du-jeune.html)\n\n"
+                     "📌 Baraak Allahu fik !",
+                parse_mode="Markdown"
+            )
+
+            # ✅ Supprimer la commande /jeune après envoi du message
+            await update.message.delete()
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de l'envoi du message /jeune : {e}")
+            await update.message.reply_text("❌ Impossible d'envoyer le message.")
+
+
+# ✅ Ajouter la commande au gestionnaire
+
+
 async def reopen_group_at_midnight(chat_id, context, delay):
     """Attend jusqu'à minuit et réactive les messages."""
     await asyncio.sleep(delay)  # Attendre jusqu'à 00h00
@@ -472,7 +573,7 @@ async def ban_user(update: Update, context: CallbackContext) -> None:
 
 
 # Remplace `CHAT_ID` par l'ID de ton groupe
-CHAT_ID = -1912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
+CHAT_ID =-1001912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
 
 async def send_daily_message(context: CallbackContext):
     """Envoie un message quotidien à 00h01."""
@@ -532,6 +633,9 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_and_close_group))
 
     app.add_handler(CommandHandler("ban", ban_user))
+
+    app.add_handler(CommandHandler("dr", already_answered))
+    app.add_handler(CommandHandler("jeune", send_fasting_info))
 
     #boutton
     app.add_handler(CallbackQueryHandler(button_click, pattern=r"^accept_\d+$"))
