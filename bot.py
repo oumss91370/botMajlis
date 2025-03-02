@@ -535,6 +535,60 @@ async def send_fasting_info(update: Update, context: CallbackContext) -> None:
 
 # ✅ Ajouter la commande au gestionnaire
 
+async def remove_excess_question(update: Update, context: CallbackContext) -> None:
+    """Supprime une question en trop et ajuste la numérotation pour éviter les erreurs."""
+    if update.message and update.message.reply_to_message:
+        user = update.message.from_user  # L'admin qui exécute la commande
+        chat_id = update.message.chat_id
+        message_to_delete = update.message.reply_to_message
+        target_user = message_to_delete.from_user  # L'utilisateur dont la question est supprimée
+        message_text = message_to_delete.text.strip()  # Texte du message supprimé
+
+        # ✅ Vérifier si l'utilisateur est admin (empêcher les "members" d'utiliser la commande)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+
+            if chat_member.status == "member":
+                await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+                return  # ❌ Bloquer uniquement les "members"
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
+
+        try:
+            # ✅ Vérifier si un numéro de question est présent
+            match = re.search(r"#(\d+)", message_text)
+            if match:
+                question_number = int(match.group(1))
+
+                # ✅ Vérifier si la question supprimée est la dernière enregistrée
+                if last_question_number.get(chat_id) == question_number:
+                    last_question_number[chat_id] -= 1  # Décrémenter pour éviter les sauts de numéros
+
+            # ✅ Supprimer le message en trop
+            await context.bot.delete_message(chat_id, message_to_delete.message_id)
+
+            # ✅ Mentionner l'utilisateur concerné
+            mention = get_mention(target_user)
+
+            # ✅ Envoyer un message expliquant la suppression
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"⚠️ {mention}, *une seule question par membre par jour est autorisée.*\n\n"
+                     "❌ *Votre question a été supprimée automatiquement.*\n"
+                     "🚨 *S'il s'agit d'une urgence, veuillez envoyer votre question au compte* @questionsprivees.",
+                parse_mode="Markdown"
+            )
+
+            # ✅ Supprimer aussi le message de l'admin contenant /1
+            await context.bot.delete_message(chat_id, update.message.message_id)
+
+        except Exception as e:
+            logging.error(f"Erreur lors de la suppression de la question en trop : {e}")
+            await update.message.reply_text("❌ Impossible de supprimer ce message.")
+
+# Ajouter cette commande au dispatcher
+
 
 async def reopen_group_at_midnight(chat_id, context, delay):
     """Attend jusqu'à minuit et réactive les messages."""
@@ -647,6 +701,8 @@ def main():
 
     # Vérification du format et de l'ordre des questions
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_question_number))
+
+    app.add_handler(CommandHandler("1", remove_excess_question))
 
     # Vérification de l'acceptation des règles
     #app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_acceptance))
