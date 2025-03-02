@@ -74,3 +74,73 @@ async def send_daily_message(context: CallbackContext):
 
 # ⏳ Planifier l'envoi du message à 00h01 tous les jours
 aiocron.crontab('1 0 * * *', func=send_daily_message, args=[None])
+
+
+
+####################################
+async def check_question_number(update: Update, context: CallbackContext) -> None:
+    """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre strict."""
+
+    if not update.message:
+        return
+
+    user = update.message.from_user
+    message_text = update.message.text.strip()  # Supprimer les espaces inutiles
+    chat_id = update.message.chat_id
+    mention = get_mention(user)
+    user_id = user.id
+    current_time = time.time()
+
+    # ✅ Ignorer si c'est une réponse à un autre message
+    if update.message.reply_to_message:
+        return
+
+    # ✅ Vérifier si l'utilisateur est un simple membre (exclure admins)
+    try:
+        chat_member = await context.bot.get_chat_member(chat_id, user_id)
+        if chat_member.status != "member":
+            return  # Ignorer les admins et autres rôles
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la vérification du statut pour {user_id} : {e}")
+        return
+
+    # ✅ Vérifier si un `#` est présent dans le message
+    match = re.search(r"#(\d+)", message_text)
+    if not match:
+        last_number = last_question_number.get(chat_id, 0)
+        expected_number = last_number + 1
+        await update.message.reply_text(
+            f"{mention} Veuillez inclure un numéro de question avec `#{expected_number}`."
+        )
+        return
+
+    # ✅ Extraire le numéro de la question
+    question_number = int(match.group(1))
+
+    # ✅ Récupérer le dernier numéro de question pour ce chat
+    last_number = last_question_number.get(chat_id, 0)
+    expected_number = last_number + 1
+
+    # ✅ Vérifier si le bot démarre en cours de route (ex: le groupe est déjà à #1400)
+    if chat_id not in last_question_number:
+        last_question_number[chat_id] = question_number
+        user_last_question_time[user_id] = current_time
+        return
+
+    # ✅ Vérifier que la numérotation suit bien l’ordre séquentiel
+    if question_number != expected_number:
+        if question_number < expected_number:
+            message = f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser `#{expected_number}`."
+        else:
+            message = f"{mention} Vous avez sauté des numéros ! Le bon numéro est `#{expected_number}`."
+
+        await update.message.reply_text(message)
+        return
+
+    # ✅ Mettre à jour avec le dernier numéro
+    last_question_number[chat_id] = question_number
+    user_last_question_time[user_id] = current_time  # Mise à jour du timestamp utilisateur
+
+    await check_and_close_group(update, context)  # Vérifier si la limite de 10 questions est atteinte
+
+####################################

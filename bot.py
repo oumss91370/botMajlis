@@ -1,4 +1,6 @@
 import os
+import time
+
 from dotenv import load_dotenv
 import aiocron
 import datetime
@@ -184,15 +186,20 @@ async def already_answered(update: Update, context: CallbackContext) -> None:
     """Répond automatiquement qu'une question a déjà été traitée lorsque /dr est utilisé en réponse."""
 
     if update.message and update.message.reply_to_message:
-        admin = update.message.from_user
+        user = update.message.from_user
         chat_id = update.message.chat_id
         message_to_reply = update.message.reply_to_message
 
-        # ✅ Vérifier si l'utilisateur est un admin
-        chat_member = await context.bot.get_chat_member(chat_id, admin.id)
-        if chat_member.status not in ["administrator", "creator"]:
-            await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
-            return
+        # ✅ Vérifier si l'utilisateur est un "member" (autoriser tous les autres statuts)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+
+            if chat_member.status == "member":
+                await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+                return  # ❌ Bloquer uniquement les "members"
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
 
         try:
             # ✅ Obtenir la mention de l'utilisateur
@@ -254,7 +261,6 @@ async def check_acceptance(update: Update, context: CallbackContext) -> None:
 # Fonction pour vérifier si un message respecte le bon format de numérotation
 
 
-import time  # 📌 Pour gérer les timestamps
 
 # Dictionnaire pour stocker le dernier message d'un utilisateur
 user_last_question_time = {}
@@ -262,64 +268,77 @@ user_last_question_time = {}
 
 
 async def check_question_number(update: Update, context: CallbackContext) -> None:
-    """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre croissant."""
+    """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre strict."""
 
-    if update.message:
-        user = update.message.from_user
-        message_text = update.message.text.strip()  # Supprimer les espaces inutiles
-        chat_id = update.message.chat_id
-        mention = get_mention(user)  # ✅ Utilisation de get_mention()
-        user_id = user.id  # ID utilisateur pour suivi
-        current_time = time.time()  # ⏳ Récupérer le timestamp actuel
+    if not update.message:
+        return
 
-        # ✅ Vérifier si le message est une réponse à un autre message → Ignorer
-        if update.message.reply_to_message:
-            return  # Ne pas corriger si c'est une réponse à un autre message
+    user = update.message.from_user
+    message_text = update.message.text.strip()  # Supprimer les espaces inutiles
+    chat_id = update.message.chat_id
+    mention = get_mention(user)
+    user_id = user.id
+    current_time = time.time()
 
-        # ✅ Vérifier si l'utilisateur est un admin (ne pas le corriger)
-        try:
-            chat_member = await context.bot.get_chat_member(chat_id, user.id)
-            if chat_member.status in ["administrator", "creator","owner"]:
-                return  # Ignorer les admins
-        except Exception as e:
-            logging.error(f"❌ Erreur lors de la vérification admin pour {user_id} : {e}")
+    # ✅ Ignorer si c'est une réponse à un autre message
+    if update.message.reply_to_message:
+        return
 
-        # ✅ Vérifier si l'utilisateur a récemment posé une question (moins de 15 min)
-        last_time = user_last_question_time.get(user_id, 0)
-        if current_time - last_time < 40000:  # ⏳ Moins de 15 minutes (900 secondes)
-            return  # Ignorer les messages sans # s'il a déjà posé une question récemment
+    # ✅ Vérifier si l'utilisateur est un simple membre (exclure admins)
+    try:
+        chat_member = await context.bot.get_chat_member(chat_id, user_id)
+        if chat_member.status != "member":
+            return  # Ignorer les admins et autres rôles
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la vérification du statut pour {user_id} : {e}")
+        return
 
-        # ✅ Vérifier si un `#` est présent dans le message
-        match = re.search(r"#(\d+)", message_text)
+    # ✅ Vérifier si l'utilisateur a récemment posé une question (moins de 15 min)
+    last_time = user_last_question_time.get(user_id, 0)
+    if current_time - last_time < 40000:  # ⏳ 15 minutes = 900 secondes
+        return  # Ignorer les messages de cet utilisateur s'il a déjà posé une question récemment
 
-        # ✅ Déterminer le numéro attendu
-        expected_number = last_question_number.get(chat_id, 0) + 1
+    # ✅ Vérifier si un `#` est présent dans le message
+    match = re.search(r"#(\d+)", message_text)
+    if not match:
+        last_number = last_question_number.get(chat_id, 0)
+        expected_number = last_number + 1
+        await update.message.reply_text(
+            f"{mention} Veuillez inclure un numéro de question avec `#{expected_number}`."
+        )
+        return
 
-        if not match:
-            await update.message.reply_text(
-                f"{mention} Veuillez inclure un numéro de question avec `#{expected_number}`."
-            )
-            return
+    # ✅ Extraire le numéro de la question
+    question_number = int(match.group(1))
 
-        # ✅ Extraire le numéro de question
-        question_number = int(match.group(1))
+    # ✅ Récupérer le dernier numéro de question pour ce chat
+    last_number = last_question_number.get(chat_id, 0)
+    expected_number = last_number + 1
 
-        # ✅ Si c'est la première question du groupe, accepter sans erreur
-        if chat_id not in last_question_number:
-            last_question_number[chat_id] = question_number
-            user_last_question_time[user_id] = current_time  # ⏳ Met à jour le timestamp de l'utilisateur
-            return
-
-        # ✅ Vérifier que la question suit bien la séquence de numérotation
-        if question_number != expected_number:
-            await update.message.reply_text(
-                f"{mention} Veuillez numéroter votre question avec `#{expected_number}` s'il vous plaît."
-            )
-            return
-
-        # ✅ Mettre à jour le dernier numéro utilisé dans ce groupe
+    # ✅ Vérifier si le bot démarre en cours de route (ex: le groupe est déjà à #1400)
+    if chat_id not in last_question_number:
         last_question_number[chat_id] = question_number
-        user_last_question_time[user_id] = current_time  # ⏳ Met à jour le timestamp de l'utilisateur
+        user_last_question_time[user_id] = current_time
+        return
+
+    # ✅ Vérifier que la numérotation suit bien l’ordre séquentiel
+    if question_number < expected_number:
+        await update.message.reply_text(
+            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser `#{expected_number}`."
+        )
+        return
+
+    if question_number > expected_number:
+        await update.message.reply_text(
+            f"{mention} Vous avez sauté des numéros ! Le bon numéro est `#{expected_number}`."
+        )
+        # 🔴 On incrémente directement le dernier numéro pour éviter les conflits
+        last_question_number[chat_id] += 1
+        return
+
+    # ✅ Mettre à jour avec le dernier numéro
+    last_question_number[chat_id] = question_number
+    user_last_question_time[user_id] = current_time  # Mise à jour du timestamp utilisateur
 
     await check_and_close_group(update, context)  # Vérifier si la limite de 10 questions est atteinte
 
@@ -328,34 +347,36 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
 async def remove_off_topic(update: Update, context: CallbackContext) -> None:
     """Supprime un message hors sujet et aussi le message /hs de l'admin."""
     if update.message and update.message.reply_to_message:
-        admin_user = update.message.from_user
+        user = update.message.from_user  # L'admin ou l'utilisateur qui exécute la commande
         chat_id = update.message.chat_id
         message_to_delete = update.message.reply_to_message
         target_user = message_to_delete.from_user  # L'utilisateur dont le message est supprimé
 
-        # Vérifier si l'utilisateur qui exécute /hs est un admin
-        chat_member = await context.bot.get_chat_member(chat_id, admin_user.id)
-        if chat_member.status not in ["administrator", "creator"]:
-            await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
-            return
+        # ✅ Vérifier si l'utilisateur est un "member" (les autres statuts sont autorisés)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+
+            if chat_member.status == "member":
+                await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+                return  # ❌ Bloquer uniquement les "members"
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
 
         try:
             # ✅ Supprimer le message hors sujet
             await context.bot.delete_message(chat_id, message_to_delete.message_id)
 
-
-
-            # ✅ Mentionner l'utilisateur concerné
-            mention = f"@{target_user.username}" if target_user.username else f"[{target_user.first_name}](tg://user?id={target_user.id})"
+            # ✅ Mentionner l'utilisateur concerné correctement
+            mention = get_mention(target_user)
 
             # ✅ Envoyer un message expliquant la suppression
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"⚠️ {mention}, *votre message a été supprimé car il est hors sujet.*\n\n"
-                     "📌 **Seules les questions liées à la croyance, au fiqh malikite et à la spiritualité qui touchent votre quotidien sont autorisées.**\n"
+                     "📌 **Seules les questions liées à la croyance, au fiqh malikite et à la spiritualité qui touchent votre quotidien sont autorisées.**\n"
                      "Merci de respecter les règles du groupe.",
                 parse_mode="Markdown"
-
             )
 
             # ✅ Supprimer aussi le message de l'admin contenant /hs
@@ -368,39 +389,43 @@ async def remove_off_topic(update: Update, context: CallbackContext) -> None:
 
 # ✅ Fonction pour expulser un utilisateur avec /wawas (réservé aux admins)
 async def remove_waswas_message(update: Update, context: CallbackContext) -> None:
-    """Supprime un message si un admin utilise /wawas en réponse et informe l'utilisateur directement dans le groupe."""
+    """Supprime un message si un admin utilise /waswas en réponse et informe l'utilisateur directement dans le groupe."""
     if update.message and update.message.reply_to_message:
-        admin = update.message.from_user
+        user = update.message.from_user  # L'admin ou la personne utilisant la commande
         chat_id = update.message.chat_id
         message_to_delete = update.message.reply_to_message
         target_user = message_to_delete.from_user  # Utilisateur dont le message est supprimé
 
-        # Vérifier si l'utilisateur est un admin
-        chat_member = await context.bot.get_chat_member(chat_id, admin.id)
-        if chat_member.status not in ["administrator", "creator"]:
-            await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
-            return
+        # ✅ Vérifier si l'utilisateur est un "member" (les autres statuts sont autorisés)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+
+            if chat_member.status == "member":
+                await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+                return  # ❌ Bloquer uniquement les "members"
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
 
         try:
             # ✅ Supprimer le message du membre contenant du waswas
             await context.bot.delete_message(chat_id, message_to_delete.message_id)
 
-            # ✅ Mentionner l'utilisateur concerné
-            mention = f"@{target_user.username}" if target_user.username else f"[{target_user.first_name}](tg://user?id={target_user.id})"
+            # ✅ Mentionner l'utilisateur concerné correctement
+            mention = get_mention(target_user)
 
             # ✅ Envoyer un message expliquant la suppression
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"⚠️ {mention}, *votre message a été supprimé, car il pourrait causer des wasâwis aux autres membres* \n\n"
-                     f"(doutes maladifs nuisant à la pratique religieuse).\n\n"
-                     "📌 *Veuillez poser votre question en privé à  @questionsprivees.*\n"
+                text=f"⚠️ {mention}, *votre message a été supprimé, car il pourrait causer des wasâwis aux autres membres* \n\n"
+                     f"(doutes maladifs nuisant à la pratique religieuse).\n\n"
+                     "📌 *Veuillez poser votre question en privé à  @questionsprivees.*\n"
                      "Merci de votre compréhension.",
                 parse_mode="Markdown"
             )
 
-            # ✅ Supprimer le message de l'admin contenant /wawas
+            # ✅ Supprimer le message de l'admin contenant /waswas
             await context.bot.delete_message(chat_id, update.message.message_id)
-
 
         except Exception as e:
             logging.error(f"Erreur lors de la suppression du message de waswas : {e}")
@@ -464,35 +489,40 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
     except Exception as e:
         logging.error(f"Erreur lors de la fermeture du groupe : {e}")
 
-
+#/jeune
 async def send_fasting_info(update: Update, context: CallbackContext) -> None:
     """Envoie une réponse automatique sur le fiqh du jeûne lorsque /jeune est utilisé en réponse."""
 
     if update.message and update.message.reply_to_message:
-        admin = update.message.from_user
+        user = update.message.from_user
         chat_id = update.message.chat_id
         message_to_reply = update.message.reply_to_message
 
-        # ✅ Vérifier si l'utilisateur est un admin
-        chat_member = await context.bot.get_chat_member(chat_id, admin.id)
-        if chat_member.status not in ["administrator", "creator"]:
-            await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
-            return
+        # ✅ Vérifier si l'utilisateur est un "member" (les autres statuts sont autorisés)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+
+            if chat_member.status == "member":
+                await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+                return  # ❌ Bloquer uniquement les "members"
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
 
         try:
-            # ✅ Obtenir la mention de l'utilisateur
+            # ✅ Obtenir la mention de l'utilisateur mentionné
             mention = get_mention(message_to_reply.from_user)
 
             # ✅ Envoyer la réponse automatique
             await context.bot.send_message(
                 chat_id=chat_id,
                 reply_to_message_id=message_to_reply.message_id,
-                text=f"⚠️ {mention}, votre question laisse entendre que vous n'avez pas encore étudié "
+                text=f"As-salam aleykoum {mention}, votre question laisse entendre que vous n'avez pas encore étudié "
                      "le fiqh du jeûne de façon systématique en suivant un cours sur le sujet ou, du moins, "
                      "qu'une révision du sujet vous serait bénéfique.\n\n"
                      "📌 *Voici un mini-cours gratuit sans inscription qui vous permettra de vous acquitter de cette obligation :* \n"
                      "👉 [Épitre du Jeûne](https://majlisalfatih.weebly.com/epitre-du-jeune.html)\n\n"
-                     "📌 Baraak Allahu fik !",
+                     " Baraak Allahu fik !",
                 parse_mode="Markdown"
             )
 
@@ -502,7 +532,6 @@ async def send_fasting_info(update: Update, context: CallbackContext) -> None:
         except Exception as e:
             logging.error(f"❌ Erreur lors de l'envoi du message /jeune : {e}")
             await update.message.reply_text("❌ Impossible d'envoyer le message.")
-
 
 # ✅ Ajouter la commande au gestionnaire
 
@@ -607,8 +636,8 @@ def main():
 
     app = Application.builder().token(TOKEN).build()
 #message quotidien
-    loop = asyncio.get_event_loop()
-    loop.create_task(send_daily_message(app))  # ✅ Crée la tâche dans l'event loop actif
+    # loop = asyncio.get_event_loop()
+    # loop.create_task(send_daily_message(app))  # ✅ Crée la tâche dans l'event loop actif
 
     #
     app.add_handler(CommandHandler("start", start))
