@@ -636,8 +636,8 @@ def main():
 
     app = Application.builder().token(TOKEN).build()
 #message quotidien
-    # loop = asyncio.get_event_loop()
-    # loop.create_task(send_daily_message(app))  # ✅ Crée la tâche dans l'event loop actif
+    loop = asyncio.get_event_loop()
+    loop.create_task(send_daily_message(app))  # ✅ Crée la tâche dans l'event loop actif
 
     #
     app.add_handler(CommandHandler("start", start))
