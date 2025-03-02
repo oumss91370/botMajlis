@@ -574,9 +574,9 @@ async def remove_excess_question(update: Update, context: CallbackContext) -> No
             # ✅ Envoyer un message expliquant la suppression
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"⚠️ {mention}, *une seule question par membre par jour est autorisée.*\n\n"
-                     "❌ *Votre question a été supprimée automatiquement.*\n"
-                     "🚨 *S'il s'agit d'une urgence, veuillez envoyer votre question au compte* @questionsprivees.",
+                text=f"⚠️ {mention}, une seule question par membre par jour est autorisée.\n\n"
+                     "❌ Votre question a été supprimée automatiquement.\n"
+                     "🚨 S'il s'agit d'une urgence, veuillez envoyer votre question au compte @questionsprivees.",
                 parse_mode="Markdown"
             )
 
