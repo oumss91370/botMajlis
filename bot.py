@@ -295,16 +295,22 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
 
     # ✅ Vérifier si l'utilisateur a récemment posé une question (moins de 15 min)
     last_time = user_last_question_time.get(user_id, 0)
-    if current_time - last_time < 40000:  # ⏳ 15 minutes = 900 secondes
+    if current_time - last_time < 1:  # ⏳ 15 minutes = 900 secondes
         return  # Ignorer les messages de cet utilisateur s'il a déjà posé une question récemment
 
     # ✅ Vérifier si un `#` est présent dans le message
     match = re.search(r"#(\d+)", message_text)
+
     if not match:
         last_number = last_question_number.get(chat_id, 0)
         expected_number = last_number + 1
+
+        # 🔴 Correction : Incrémenter immédiatement pour éviter les conflits
+        last_question_number[chat_id] = expected_number
+
         await update.message.reply_text(
-            f"{mention} Veuillez inclure un numéro de question avec `#{expected_number}`."
+            f"{mention} Veuillez inclure un numéro de question avec #{expected_number}."
+
         )
         return
 
@@ -324,13 +330,13 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     # ✅ Vérifier que la numérotation suit bien l’ordre séquentiel
     if question_number < expected_number:
         await update.message.reply_text(
-            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser `#{expected_number}`."
+            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
         )
         return
 
     if question_number > expected_number:
         await update.message.reply_text(
-            f"{mention} Vous avez sauté des numéros ! Le bon numéro est `#{expected_number}`."
+            f"{mention} Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
         )
         # 🔴 On incrémente directement le dernier numéro pour éviter les conflits
         last_question_number[chat_id] += 1
@@ -457,37 +463,7 @@ async def check_and_close_group(update: Update, context: CallbackContext) -> Non
                 await close_group_until_midnight(update, context)
 
 
-async def close_group_until_midnight(update: Update, context: CallbackContext) -> None:
-    """Ferme le groupe jusqu'à minuit."""
-    chat_id = update.message.chat_id
 
-    try:
-        # 🔒 Bloquer l'envoi de messages
-        await context.bot.set_chat_permissions(
-            chat_id=chat_id,
-            permissions=ChatPermissions(
-                can_send_messages=False  # Désactiver les messages
-            )
-        )
-
-        # 📢 Envoyer un message d'information
-        await update.message.reply_text(
-            "⚠️ *La limite de 10 questions a été atteinte pour aujourd’hui.*\n\n"
-            "📌 *Le groupe est fermé jusqu'à minuit.*\n"
-            "📌 *En cas d’urgence, contactez @questionsprivees.*",
-            parse_mode="Markdown"
-        )
-
-        # ⏳ Calcul du temps restant jusqu'à minuit
-        now = datetime.datetime.now()
-        midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0, 0))
-        seconds_until_midnight = (midnight - now).total_seconds()
-
-        # ✅ Planifier la réouverture du groupe à minuit
-        asyncio.create_task(reopen_group_at_midnight(chat_id, context, seconds_until_midnight))
-
-    except Exception as e:
-        logging.error(f"Erreur lors de la fermeture du groupe : {e}")
 
 #/jeune
 async def send_fasting_info(update: Update, context: CallbackContext) -> None:
@@ -589,7 +565,37 @@ async def remove_excess_question(update: Update, context: CallbackContext) -> No
 
 # Ajouter cette commande au dispatcher
 
+async def close_group_until_midnight(update: Update, context: CallbackContext) -> None:
+    """Ferme le groupe jusqu'à minuit."""
+    chat_id = update.message.chat_id
 
+    try:
+        # 🔒 Bloquer l'envoi de messages
+        await context.bot.set_chat_permissions(
+            chat_id=chat_id,
+            permissions=ChatPermissions(
+                can_send_messages=False  # Désactiver les messages
+            )
+        )
+
+        # 📢 Envoyer un message d'information
+        await update.message.reply_text(
+            "⚠️ *La limite de 10 questions a été atteinte pour aujourd’hui.*\n\n"
+            "📌 *Le groupe est fermé jusqu'à minuit.*\n"
+            "📌 *En cas d’urgence, contactez @questionsprivees.*",
+            parse_mode="Markdown"
+        )
+
+        # ⏳ Calcul du temps restant jusqu'à minuit
+        now = datetime.datetime.now()
+        midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0, 0))
+        seconds_until_midnight = (midnight - now).total_seconds()
+
+        # ✅ Planifier la réouverture du groupe à minuit
+        asyncio.create_task(reopen_group_at_midnight(chat_id, context, seconds_until_midnight))
+
+    except Exception as e:
+        logging.error(f"Erreur lors de la fermeture du groupe : {e}")
 async def reopen_group_at_midnight(chat_id, context, delay):
     """Attend jusqu'à minuit et réactive les messages."""
     await asyncio.sleep(delay)  # Attendre jusqu'à 00h00
@@ -655,16 +661,62 @@ async def ban_user(update: Update, context: CallbackContext) -> None:
 
 
 
+
+async def unclear_question(update: Update, context: CallbackContext) -> None:
+    """Indique qu'une question n'est pas claire et demande à l'utilisateur de la reformuler."""
+    if update.message and update.message.reply_to_message:
+        user = update.message.from_user  # L'admin qui exécute la commande
+        chat_id = update.message.chat_id
+        target_message = update.message.reply_to_message
+        target_user = target_message.from_user  # L'utilisateur qui a posé la question
+
+        # ✅ Vérifier si l'utilisateur est un admin (empêcher les "members" d'utiliser la commande)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+
+            if chat_member.status == "member":
+                await update.message.reply_text("❌ Seuls les admins peuvent utiliser cette commande.")
+                return  # ❌ Bloquer uniquement les "members"
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
+
+        try:
+            # ✅ Mentionner l'utilisateur concerné
+            mention = get_mention(target_user)
+
+            # ✅ Envoyer un message d'avertissement sans supprimer son message
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"Wa'alaykumus-salaam {mention},\n\n"
+                     "❌ Votre question n'est pas claire.\n"
+                     "📌 Veuillez la reformuler en modifiant votre message.",
+                parse_mode="Markdown"
+            )
+
+            # ✅ Supprimer le message de l'admin contenant /pc
+            try:
+                await update.message.delete()
+            except Exception as e:
+                logging.error(f"❌ Impossible de supprimer le message de commande /pc : {e}")
+
+        except Exception as e:
+            logging.error(f"Erreur lors de l'envoi du message /pc : {e}")
+            await update.message.reply_text("❌ Impossible d'envoyer l'avertissement.")
+
+
 # Remplace `CHAT_ID` par l'ID de ton groupe
 CHAT_ID =-1001912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
 
-async def send_daily_message(context: CallbackContext):
+
+
+
+async def send_daily_message(context: CallbackContext) -> None:
     """Envoie un message quotidien à 00h01."""
     message = (
         "Nous nous retrouvons ce jour par la Grâce d'Allah dans Q&R MALIKIYYAH, "
         "groupe dédié aux questions pratiques de fiqh, de 'aqiidah et de tasawwuf de la communauté musulmane ⭐️\n\n"
         "📌 **RAPPEL GÉNÉRAL** 📌\n\n"
-        
         "▪️ Respectez les [règles du groupe](https://t.me/c/1912372093/7898) \n"
         "▪️ Et surtout : étudiez la Science !\n"
         "👉 Remplissez cette obligation en suivant [des cours](https://majlisalfatih.weebly.com/cours.html)\n\n"
@@ -677,8 +729,19 @@ async def send_daily_message(context: CallbackContext):
     except Exception as e:
         logging.error(f"❌ Erreur lors de l'envoi du message quotidien : {e}")
 
-# ⏳ Planifier l'envoi du message à 00h01 tous les jours
-aiocron.crontab('1 0 * * *', func=send_daily_message, args=[None])
+def schedule_daily_message(application: Application) -> None:
+    """Planifie l'envoi du message quotidien à 00h01."""
+    job_queue = application.job_queue
+    now = datetime.datetime.now()
+    midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0, 1))
+
+    # Calcul du temps restant jusqu'à 00h01
+    delay = (midnight - now).total_seconds()
+
+    # Planifier l'exécution quotidienne
+    job_queue.run_daily(send_daily_message, time=datetime.time(0, 1), chat_id=CHAT_ID)
+
+    logging.info("✅ Message quotidien planifié pour 00h01.")
 
 
 # ✅ Fonction principale
@@ -690,8 +753,7 @@ def main():
 
     app = Application.builder().token(TOKEN).build()
 #message quotidien
-    loop = asyncio.get_event_loop()
-    loop.create_task(send_daily_message(app))  # ✅ Crée la tâche dans l'event loop actif
+    schedule_daily_message(app)
 
     #
     app.add_handler(CommandHandler("start", start))
@@ -703,6 +765,8 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_question_number))
 
     app.add_handler(CommandHandler("1", remove_excess_question))
+
+    app.add_handler(CommandHandler("pc", unclear_question))
 
     # Vérification de l'acceptation des règles
     #app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_acceptance))
