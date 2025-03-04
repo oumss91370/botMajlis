@@ -60,8 +60,7 @@ def get_mention(user):
         first_name = user.first_name if user.first_name else "Utilisateur"
         clean_name = re.sub(r"([_*[\]()~`>#+-=|{}.!])", r"\\\1", first_name)  # Échapper MarkdownV2
 
-        return clean_name  # ✅ Juste le nom/prénom, sans lien Telegram
-
+        return f"@{clean_name}"  # ✅ Ajoute @ devant le prénom/nom
 
 # ✅ Fonction pour accueillir les nouveaux membres avec @username ou @NomPrenom
 
