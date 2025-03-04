@@ -307,14 +307,14 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     # ✅ Cas où la question est déjà prise
     if question_number <= last_number:
         await update.message.reply_text(
-            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser `#{expected_number}`."
+            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
         )
         return
 
     # ✅ Cas où l'utilisateur saute un numéro (ex : il met #1479 alors que le dernier était #1477)
     if question_number > expected_number:
         await update.message.reply_text(
-            f"{mention} Vous avez sauté des numéros ! Le bon numéro est `#{expected_number}`."
+            f"{mention} Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
         )
         return
 
