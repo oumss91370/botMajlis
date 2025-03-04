@@ -284,45 +284,46 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
 
     # ✅ Vérifier si l'utilisateur a récemment posé une question (évite spam)
     last_time = user_last_question_time.get(user_id, 0)
-    if current_time - last_time < 40000:  # ⏳ 15 minutes = 900 secondes
+    if current_time - last_time < 1:  # ⏳ 15 minutes = 900 secondes
         return  # Ignorer si un `#` a déjà été envoyé récemment
 
     # ✅ Vérifier si un `#` est présent dans le message
     match = re.search(r"#(\d+)", message_text)
     last_number = last_question_number.get(chat_id, 0)
-    expected_number = last_number + 1
 
     if not match:
-        # ✅ Correction : Incrémenter immédiatement pour éviter les conflits
-        last_question_number[chat_id] = expected_number
-
+        # ✅ Incrémenter immédiatement `last_question_number` pour avancer de manière linéaire
+        last_question_number[chat_id] = last_number + 1
         await update.message.reply_text(
-            f"{mention} Veuillez inclure un numéro de question avec #{expected_number}."
+            f"{mention} Veuillez inclure un numéro de question avec #{last_question_number[chat_id]}."
         )
         return
 
     # ✅ Extraire le numéro de la question
     question_number = int(match.group(1))
 
-    # ✅ Cas où la question est déjà prise
+    # ✅ Si le numéro est déjà utilisé, on avance et on propose le suivant
     if question_number <= last_number:
+        last_question_number[chat_id] += 1  # 🔹 On évite de rester bloqué sur un même numéro
         await update.message.reply_text(
-            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
+            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser #{last_question_number[chat_id]}."
         )
         return
 
-    # ✅ Cas où l'utilisateur saute un numéro (ex : il met #1479 alors que le dernier était #1477)
-    if question_number > expected_number:
+    # ✅ Si l'utilisateur saute un numéro, on lui propose le bon et on continue d'avancer
+    if question_number > last_number + 1:
+        last_question_number[chat_id] += 1  # 🔹 On avance systématiquement
         await update.message.reply_text(
-            f"{mention} Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
+            f"{mention} Vous avez sauté des numéros ! Le bon numéro est #{last_question_number[chat_id]}."
         )
         return
 
-    # ✅ Mettre à jour le dernier numéro enregistré SEULEMENT si tout est correct
+    # ✅ Si tout est correct, on enregistre la question normalement
     last_question_number[chat_id] = question_number
     user_last_question_time[user_id] = current_time  # ⏳ Mise à jour du timestamp utilisateur
 
     logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
+
 
 
 # ✅ Fonction pour supprimer un message hors sujet avec /hs (réservé aux admins)
