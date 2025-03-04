@@ -56,17 +56,18 @@ async def track_group(update: Update, context: CallbackContext) -> None:
         group_ids.add(chat.id)
         logging.info(f"📌 Le bot a été ajouté dans le groupe : {chat.title} (ID: {chat.id})")
 
-def get_mention(user):
-    """Retourne `@username` si disponible, sinon mentionne via `tg://user?id=USER_ID`."""
-    if user.username:
-        return f"@{user.username}"  # ✅ Mention normale avec username
-    else:
-        # Nettoyer le prénom pour éviter les erreurs MarkdownV2
-        first_name = user.first_name if user.first_name else "Utilisateur"
-        clean_name = re.sub(r"([_*[\]()~`>#+-=|{}.!])", r"\\\1", first_name)
+import re
 
-        # ✅ Mention avec ID utilisateur (fonctionne même sans username)
-        return f"[{clean_name}](tg://user?id={user.id})"
+def get_mention(user):
+    """Retourne @username si disponible, sinon affiche juste le prénom/nom sans lien."""
+    if user.username:
+        return f"@{user.username}"  # ✅ Affiche l'@username normalement
+    else:
+        # ✅ Affiche uniquement le prénom/nom sans lien, sans caractères spéciaux MarkdownV2
+        first_name = user.first_name if user.first_name else "Utilisateur"
+        clean_name = re.sub(r"([_*[\]()~`>#+-=|{}.!])", r"\\\1", first_name)  # Échapper MarkdownV2
+
+        return clean_name  # ✅ Juste le nom/prénom, sans lien Telegram
 
 
 # ✅ Fonction pour accueillir les nouveaux membres avec @username ou @NomPrenom
@@ -744,6 +745,21 @@ def schedule_daily_message(application: Application) -> None:
     logging.info("✅ Message quotidien planifié pour 00h01.")
 
 
+
+CHAT_IDtest = -1002391499606  # Remplace par l'ID du canal où tu veux exécuter la tâche
+
+async def keep_bot_active(context: CallbackContext) -> None:
+    """Tâche exécutée toutes les 3 minutes uniquement dans un canal spécifique."""
+    try:
+        await context.bot.send_message(
+            chat_id=CHAT_IDtest,
+            text="🔄 Le bot est actif.",
+        )
+        logging.info("✅ Message anti-sleep envoyé.")
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'envoi du message anti-sleep : {e}")
+
+
 # ✅ Fonction principale
 def main():
 
@@ -752,7 +768,11 @@ def main():
     logging.info("Démarrage du bot...")
 
     app = Application.builder().token(TOKEN).build()
-#message quotidien
+    # ✅ Planifier la tâche toutes les 3 minutes UNIQUEMENT sur le canal défini
+    job_queue = app.job_queue
+    job_queue.run_repeating(keep_bot_active, interval=180, first=10)  # 🔄 Exécution toutes les 3 minutes
+
+    #message quotidien
     schedule_daily_message(app)
 
     #
