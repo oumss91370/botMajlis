@@ -78,6 +78,10 @@ aiocron.crontab('1 0 * * *', func=send_daily_message, args=[None])
 
 
 ####################################
+
+####################################
+
+
 async def check_question_number(update: Update, context: CallbackContext) -> None:
     """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre strict."""
 
@@ -104,13 +108,24 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         logging.error(f"❌ Erreur lors de la vérification du statut pour {user_id} : {e}")
         return
 
+    # ✅ Vérifier si l'utilisateur a récemment posé une question (moins de 15 min)
+    last_time = user_last_question_time.get(user_id, 0)
+    if current_time - last_time < 1:  # ⏳ 15 minutes = 900 secondes
+        return  # Ignorer les messages de cet utilisateur s'il a déjà posé une question récemment
+
     # ✅ Vérifier si un `#` est présent dans le message
     match = re.search(r"#(\d+)", message_text)
+
     if not match:
         last_number = last_question_number.get(chat_id, 0)
         expected_number = last_number + 1
+
+        # 🔴 Correction : Incrémenter immédiatement pour éviter les conflits
+        last_question_number[chat_id] = expected_number
+
         await update.message.reply_text(
-            f"{mention} Veuillez inclure un numéro de question avec `#{expected_number}`."
+            f"{mention} Veuillez inclure un numéro de question avec #{expected_number}."
+
         )
         return
 
@@ -128,13 +143,18 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         return
 
     # ✅ Vérifier que la numérotation suit bien l’ordre séquentiel
-    if question_number != expected_number:
-        if question_number < expected_number:
-            message = f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser `#{expected_number}`."
-        else:
-            message = f"{mention} Vous avez sauté des numéros ! Le bon numéro est `#{expected_number}`."
+    if question_number < expected_number:
+        await update.message.reply_text(
+            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
+        )
+        return
 
-        await update.message.reply_text(message)
+    if question_number > expected_number:
+        await update.message.reply_text(
+            f"{mention} Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
+        )
+        # 🔴 On incrémente directement le dernier numéro pour éviter les conflits
+        last_question_number[chat_id] += 1
         return
 
     # ✅ Mettre à jour avec le dernier numéro
@@ -142,5 +162,3 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     user_last_question_time[user_id] = current_time  # Mise à jour du timestamp utilisateur
 
     await check_and_close_group(update, context)  # Vérifier si la limite de 10 questions est atteinte
-
-####################################

@@ -1,8 +1,7 @@
 import os
 import time
-
+import sys
 from dotenv import load_dotenv
-import aiocron
 import datetime
 import asyncio
 from telegram import ChatPermissions
@@ -11,7 +10,6 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, CallbackQueryHandler
 from keep_alive import keep_alive
-import re
 
 
 load_dotenv()
@@ -21,7 +19,10 @@ token=os.getenv('MAJLIS_TOKEN')
 
 
 # Activer les logs pour voir les erreurs
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
 # 📌 Lire le token depuis le fichier apikey
 
@@ -47,14 +48,6 @@ async def start(update: Update, context: CallbackContext) -> None:
 # ✅ Fonction pour obtenir un `@username` même si l'utilisateur n'en a pas
 
 
-group_ids = set()  # Stocker dynamiquement les ID des groupes
-
-async def track_group(update: Update, context: CallbackContext) -> None:
-    """Ajoute dynamiquement les groupes où le bot est présent."""
-    chat = update.message.chat
-    if chat.type in ["group", "supergroup"]:
-        group_ids.add(chat.id)
-        logging.info(f"📌 Le bot a été ajouté dans le groupe : {chat.title} (ID: {chat.id})")
 
 import re
 
@@ -72,16 +65,12 @@ def get_mention(user):
 
 # ✅ Fonction pour accueillir les nouveaux membres avec @username ou @NomPrenom
 
-# Activer les logs pour voir les erreurs
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
-
 # Stockage des messages de bienvenue envoyés
 
 # ✅ Fonction pour accueillir les nouveaux membres et gérer l'acceptation
 
 
 # Activer les logs
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 async def welcome_new_member(update: Update, context: CallbackContext) -> None:
     """Gère l'arrivée des nouveaux membres et affiche un bouton 'Accepter'."""
@@ -275,7 +264,7 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         return
 
     user = update.message.from_user
-    message_text = update.message.text.strip()  # Supprimer les espaces inutiles
+    message_text = update.message.text.strip()  # Nettoyer le texte
     chat_id = update.message.chat_id
     mention = get_mention(user)
     user_id = user.id
@@ -294,60 +283,45 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         logging.error(f"❌ Erreur lors de la vérification du statut pour {user_id} : {e}")
         return
 
-    # ✅ Vérifier si l'utilisateur a récemment posé une question (moins de 15 min)
+    # ✅ Vérifier si l'utilisateur a récemment posé une question (évite spam)
     last_time = user_last_question_time.get(user_id, 0)
     if current_time - last_time < 1:  # ⏳ 15 minutes = 900 secondes
-        return  # Ignorer les messages de cet utilisateur s'il a déjà posé une question récemment
+        return  # Ignorer si un `#` a déjà été envoyé récemment
 
     # ✅ Vérifier si un `#` est présent dans le message
     match = re.search(r"#(\d+)", message_text)
+    last_number = last_question_number.get(chat_id, 0)
+    expected_number = last_number + 1
 
     if not match:
-        last_number = last_question_number.get(chat_id, 0)
-        expected_number = last_number + 1
-
-        # 🔴 Correction : Incrémenter immédiatement pour éviter les conflits
-        last_question_number[chat_id] = expected_number
-
+        # ✅ On ne met pas à jour immédiatement `last_question_number`
         await update.message.reply_text(
             f"{mention} Veuillez inclure un numéro de question avec #{expected_number}."
-
         )
         return
 
     # ✅ Extraire le numéro de la question
     question_number = int(match.group(1))
 
-    # ✅ Récupérer le dernier numéro de question pour ce chat
-    last_number = last_question_number.get(chat_id, 0)
-    expected_number = last_number + 1
-
-    # ✅ Vérifier si le bot démarre en cours de route (ex: le groupe est déjà à #1400)
-    if chat_id not in last_question_number:
-        last_question_number[chat_id] = question_number
-        user_last_question_time[user_id] = current_time
-        return
-
-    # ✅ Vérifier que la numérotation suit bien l’ordre séquentiel
-    if question_number < expected_number:
+    # ✅ Cas où la question est déjà prise
+    if question_number <= last_number:
         await update.message.reply_text(
-            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
+            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser `#{expected_number}`."
         )
         return
 
+    # ✅ Cas où l'utilisateur saute un numéro (ex : il met #1479 alors que le dernier était #1477)
     if question_number > expected_number:
         await update.message.reply_text(
-            f"{mention} Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
+            f"{mention} Vous avez sauté des numéros ! Le bon numéro est `#{expected_number}`."
         )
-        # 🔴 On incrémente directement le dernier numéro pour éviter les conflits
-        last_question_number[chat_id] += 1
         return
 
-    # ✅ Mettre à jour avec le dernier numéro
+    # ✅ Mettre à jour le dernier numéro enregistré SEULEMENT si tout est correct
     last_question_number[chat_id] = question_number
-    user_last_question_time[user_id] = current_time  # Mise à jour du timestamp utilisateur
+    user_last_question_time[user_id] = current_time  # ⏳ Mise à jour du timestamp utilisateur
 
-    await check_and_close_group(update, context)  # Vérifier si la limite de 10 questions est atteinte
+    logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
 
 
 # ✅ Fonction pour supprimer un message hors sujet avec /hs (réservé aux admins)
@@ -438,30 +412,6 @@ async def remove_waswas_message(update: Update, context: CallbackContext) -> Non
             logging.error(f"Erreur lors de la suppression du message de waswas : {e}")
             await update.message.reply_text("❌ Impossible de supprimer ce message.")
 
-
-async def check_and_close_group(update: Update, context: CallbackContext) -> None:
-    """Ferme le groupe si 10 questions ont été posées dans la journée."""
-    global questions_today
-
-    if update.message:
-        chat_id = update.message.chat_id
-        today = datetime.date.today()
-
-        # Vérifier si c'est une nouvelle journée (reset du compteur)
-        if chat_id not in questions_today or questions_today[chat_id]["date"] != today:
-            questions_today[chat_id] = {"count": 0, "date": today}
-
-        # Extraire le numéro de la question
-        message_text = update.message.text
-        match = re.match(r"#(\d+)", message_text)
-
-        if match:
-            questions_today[chat_id]["count"] += 1
-            print(f"📊 Nombre de questions posées aujourd'hui : {questions_today[chat_id]['count']}")
-
-            # Si 10 questions ont été posées, on ferme le groupe
-            if questions_today[chat_id]["count"] >= 10:
-                await close_group_until_midnight(update, context)
 
 
 
@@ -564,7 +514,48 @@ async def remove_excess_question(update: Update, context: CallbackContext) -> No
             logging.error(f"Erreur lors de la suppression de la question en trop : {e}")
             await update.message.reply_text("❌ Impossible de supprimer ce message.")
 
-# Ajouter cette commande au dispatcher
+
+# ✅ Activer les logs une seule fois au début du script
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+
+# ✅ Dictionnaire pour stocker les questions du jour
+
+async def check_and_close_group(update: Update, context: CallbackContext) -> None:
+    """Ferme le groupe si 10 questions ont été posées dans la journée."""
+    global questions_today
+
+    if not update.message:
+        return
+
+    chat_id = update.message.chat_id
+    today = datetime.date.today()
+    message_text = update.message.text
+
+    # ✅ Vérifier si c'est une nouvelle journée (reset du compteur)
+    if chat_id not in questions_today or questions_today[chat_id]["date"] != today:
+        questions_today[chat_id] = {"count": 0, "date": today}
+        logging.info(f"🔄 Réinitialisation des questions du jour pour le groupe {chat_id}.")
+
+    # ✅ Extraire le numéro de la question avec regex
+    match = re.match(r"#(\d+)", message_text)
+
+    if match:
+        questions_today[chat_id]["count"] += 1
+        count = questions_today[chat_id]["count"]
+
+        # ✅ Log du nombre actuel de questions
+        logging.info(f"📊 {count} question(s) posée(s) aujourd'hui dans le groupe {chat_id}.")
+
+        # ✅ Forcer l'affichage du log immédiatement
+        sys.stdout.flush()
+
+        # ✅ Vérifier si la limite de 10 questions est atteinte
+        if count >= 10:
+            logging.warning(f"🚨 Limite de 10 questions atteinte dans {chat_id}. Fermeture du groupe.")
+            await close_group_until_midnight(update, context)
 
 async def close_group_until_midnight(update: Update, context: CallbackContext) -> None:
     """Ferme le groupe jusqu'à minuit."""
@@ -574,9 +565,7 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
         # 🔒 Bloquer l'envoi de messages
         await context.bot.set_chat_permissions(
             chat_id=chat_id,
-            permissions=ChatPermissions(
-                can_send_messages=False  # Désactiver les messages
-            )
+            permissions=ChatPermissions(can_send_messages=False)
         )
 
         # 📢 Envoyer un message d'information
@@ -587,6 +576,8 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
             parse_mode="Markdown"
         )
 
+        logging.info(f"🔒 Groupe {chat_id} fermé jusqu'à minuit.")
+
         # ⏳ Calcul du temps restant jusqu'à minuit
         now = datetime.datetime.now()
         midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0, 0))
@@ -596,7 +587,8 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
         asyncio.create_task(reopen_group_at_midnight(chat_id, context, seconds_until_midnight))
 
     except Exception as e:
-        logging.error(f"Erreur lors de la fermeture du groupe : {e}")
+        logging.error(f"❌ Erreur lors de la fermeture du groupe : {e}")
+
 async def reopen_group_at_midnight(chat_id, context, delay):
     """Attend jusqu'à minuit et réactive les messages."""
     await asyncio.sleep(delay)  # Attendre jusqu'à 00h00
@@ -605,9 +597,7 @@ async def reopen_group_at_midnight(chat_id, context, delay):
         # 🔓 Réactiver les messages
         await context.bot.set_chat_permissions(
             chat_id=chat_id,
-            permissions=ChatPermissions(
-                can_send_messages=True  # Permettre à nouveau les messages
-            )
+            permissions=ChatPermissions(can_send_messages=True)
         )
 
         # 📢 Envoyer un message de réouverture
@@ -619,9 +609,10 @@ async def reopen_group_at_midnight(chat_id, context, delay):
 
         # 🎯 Réinitialiser le compteur pour la nouvelle journée
         questions_today[chat_id] = {"count": 0, "date": datetime.date.today()}
+        logging.info(f"✅ Groupe {chat_id} rouvert, compteur réinitialisé.")
 
     except Exception as e:
-        logging.error(f"Erreur lors de la réouverture du groupe : {e}")
+        logging.error(f"❌ Erreur lors de la réouverture du groupe : {e}")
 
 async def ban_user(update: Update, context: CallbackContext) -> None:
     """Bannit un utilisateur du groupe si un admin utilise /ban en réponse à un message."""
