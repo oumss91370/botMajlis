@@ -306,7 +306,7 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
 
     # ✅ Vérifier si l'utilisateur a récemment posé une question (évite spam)
     last_time = user_last_question_time.get(user_id, 0)
-    if current_time - last_time < 1:  # ⏳ 15 minutes = 900 secondes
+    if current_time - last_time < 40000:  # ⏳ 15 minutes = 900 secondes
         return  # Ignorer si un `#` a déjà été envoyé récemment
 
     # ✅ Vérifier si un `#` est présent dans le message
