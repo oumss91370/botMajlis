@@ -253,11 +253,29 @@ async def check_acceptance(update: Update, context: CallbackContext) -> None:
 
 # Dictionnaire pour stocker le dernier message d'un utilisateur
 user_last_question_time = {}
+async def initialize_last_question_number(context: CallbackContext, chat_id: int):
+    """Récupère uniquement le dernier numéro #XXX trouvé dans le groupe et l'utilise comme référence."""
+    try:
+        last_valid_number = 0  # Valeur par défaut
 
+        updates = await context.bot.get_updates()  # ✅ Récupère les derniers messages reçus par le bot
 
+        for update in reversed(updates):  # 🔹 Parcourt les messages du plus récent au plus ancien
+            if update.message and update.message.chat_id == chat_id and update.message.text:
+                match = re.search(r"#(\d+)", update.message.text)
+                if match:
+                    last_valid_number = int(match.group(1))  # ✅ Prend immédiatement le dernier `#` trouvé
+                    break  # ✅ Dès qu'on trouve un `#`, on s'arrête
+
+        last_question_number[chat_id] = last_valid_number  # ✅ Mise à jour avec le dernier numéro trouvé
+        logging.info(f"✅ Initialisation : dernier numéro trouvé dans {chat_id} → #{last_question_number[chat_id]}")
+
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'initialisation de last_question_number pour {chat_id} : {e}")
+        last_question_number[chat_id] = 0  # Sécurité en cas d'erreur
 
 async def check_question_number(update: Update, context: CallbackContext) -> None:
-    """Vérifie si un message contient un numéro de question valide (#XXX) et suit l'ordre strict."""
+    """Vérifie si un message contient un numéro de question valide (#XXX) et suit un incrément linéaire n+1."""
 
     if not update.message:
         return
@@ -268,6 +286,10 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     mention = get_mention(user)
     user_id = user.id
     current_time = time.time()
+
+    # ✅ Vérifier si le bot a déjà initialisé le dernier numéro pour ce groupe
+    if chat_id not in last_question_number:
+        await initialize_last_question_number(context, chat_id)
 
     # ✅ Ignorer si c'est une réponse à un autre message
     if update.message.reply_to_message:
@@ -290,39 +312,41 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     # ✅ Vérifier si un `#` est présent dans le message
     match = re.search(r"#(\d+)", message_text)
     last_number = last_question_number.get(chat_id, 0)
+    expected_number = last_number + 1  # Toujours avancer de `n + 1`
 
     if not match:
-        # ✅ Incrémenter immédiatement `last_question_number` pour avancer de manière linéaire
-        last_question_number[chat_id] = last_number + 1
+        # 🔴 Si pas de `#`, on force l'utilisateur à en mettre un et on avance immédiatement
+        last_question_number[chat_id] = expected_number
         await update.message.reply_text(
-            f"{mention} Veuillez inclure un numéro de question avec #{last_question_number[chat_id]}."
+            f"{mention} ❌ Veuillez inclure un numéro de question avec #{expected_number}."
         )
         return
 
     # ✅ Extraire le numéro de la question
     question_number = int(match.group(1))
 
-    # ✅ Si le numéro est déjà utilisé, on avance et on propose le suivant
-    if question_number <= last_number:
-        last_question_number[chat_id] += 1  # 🔹 On évite de rester bloqué sur un même numéro
+    # 🔴 Si le numéro est déjà utilisé ou en retard, on propose le prochain et on avance immédiatement
+    if question_number < last_number:
+        last_question_number[chat_id] = expected_number
         await update.message.reply_text(
-            f"{mention} Ce numéro est déjà utilisé. Veuillez utiliser #{last_question_number[chat_id]}."
+            f"{mention} ❌ Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
         )
         return
 
-    # ✅ Si l'utilisateur saute un numéro, on lui propose le bon et on continue d'avancer
-    if question_number > last_number + 1:
-        last_question_number[chat_id] += 1  # 🔹 On avance systématiquement
+    # 🔴 Si l'utilisateur saute un numéro, on avance immédiatement et on propose le bon
+    if question_number > expected_number:
+        last_question_number[chat_id] = expected_number
         await update.message.reply_text(
-            f"{mention} Vous avez sauté des numéros ! Le bon numéro est #{last_question_number[chat_id]}."
+            f"{mention} ❌ Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
         )
         return
 
-    # ✅ Si tout est correct, on enregistre la question normalement
+    # ✅ Tout est correct, on enregistre la question et on avance
     last_question_number[chat_id] = question_number
     user_last_question_time[user_id] = current_time  # ⏳ Mise à jour du timestamp utilisateur
 
     logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
+
 
 
 
