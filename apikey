@@ -162,3 +162,24 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     user_last_question_time[user_id] = current_time  # Mise à jour du timestamp utilisateur
 
     await check_and_close_group(update, context)  # Vérifier si la limite de 10 questions est atteinte
+
+**********************************************************
+async def initialize_last_question_number(context: CallbackContext, chat_id: int):
+    """Récupère le dernier numéro #XXX trouvé dans le groupe, en prenant le plus grand dans les 50 derniers messages."""
+    try:
+        last_valid_number = 0  # ✅ On commence avec 0 et on cherche le plus grand numéro
+
+        async for message in context.bot.get_chat(chat_id).get_history(limit=50):  # 🔹 On récupère les 50 derniers messages
+            if message.text:
+                match = re.search(r"#(\d+)", message.text)
+                if match:
+                    num = int(match.group(1))
+                    last_valid_number = max(last_valid_number, num)  # ✅ On garde toujours le plus grand trouvé
+
+        last_question_number[chat_id] = last_valid_number  # ✅ Mise à jour avec le dernier numéro correct
+        logging.info(f"✅ Initialisation : dernier numéro trouvé dans {chat_id} → #{last_question_number[chat_id]}")
+
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'initialisation de last_question_number pour {chat_id} : {e}")
+        last_question_number[chat_id] = 0  # Sécurité en cas d'erreur
+**********************************************************

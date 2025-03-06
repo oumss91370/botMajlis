@@ -14,6 +14,7 @@ from keep_alive import keep_alive
 
 load_dotenv()
 token=os.getenv('MAJLIS_TOKEN')
+CHAT_ID =-1001912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
 
 # Dictionnaire pour compter le nombre de questions posées chaque jour
 
@@ -274,6 +275,10 @@ async def initialize_last_question_number(context: CallbackContext, chat_id: int
         logging.error(f"❌ Erreur lors de l'initialisation de last_question_number pour {chat_id} : {e}")
         last_question_number[chat_id] = 0  # Sécurité en cas d'erreur
 
+# ✅ Dictionnaire pour stocker le premier message du user dans le groupe
+user_first_message_time = {}
+
+
 async def check_question_number(update: Update, context: CallbackContext) -> None:
     """Vérifie si un message contient un numéro de question valide (#XXX) et suit un incrément linéaire n+1."""
 
@@ -281,7 +286,7 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         return
 
     user = update.message.from_user
-    message_text = update.message.text.strip()  # Nettoyer le texte
+    message_text = update.message.text.strip()
     chat_id = update.message.chat_id
     mention = get_mention(user)
     user_id = user.id
@@ -304,10 +309,11 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         logging.error(f"❌ Erreur lors de la vérification du statut pour {user_id} : {e}")
         return
 
-    # ✅ Vérifier si l'utilisateur a récemment posé une question (évite spam)
-    last_time = user_last_question_time.get(user_id, 0)
-    if current_time - last_time < 40000:  # ⏳ 15 minutes = 900 secondes
-        return  # Ignorer si un `#` a déjà été envoyé récemment
+    # ✅ Vérifier si c'est le premier message de l'utilisateur
+    if user_id not in user_first_message_time:
+        user_first_message_time[user_id] = current_time  # 🔹 Stocke l'heure du premier message
+    else:
+        return  # ❌ Si l'utilisateur a déjà envoyé un message, on ignore tous les suivants
 
     # ✅ Vérifier si un `#` est présent dans le message
     match = re.search(r"#(\d+)", message_text)
@@ -343,11 +349,32 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
 
     # ✅ Tout est correct, on enregistre la question et on avance
     last_question_number[chat_id] = question_number
-    user_last_question_time[user_id] = current_time  # ⏳ Mise à jour du timestamp utilisateur
-
     logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
 
 
+
+
+async def reset_daily_data(context: CallbackContext) -> None:
+    """Réinitialise le stockage des questions et des timestamps chaque jour à minuit."""
+    global last_question_number, user_first_message_time
+
+    last_question_number.clear()  # 🔄 Réinitialiser la numérotation des questions
+    user_first_message_time.clear()  # 🔄 Réinitialiser les premiers messages des utilisateurs
+
+    logging.info("🔄 Réinitialisation quotidienne des données terminée.")
+
+
+async def schedule_daily_reset(application: Application) -> None:
+    """Planifie la réinitialisation automatique à minuit tous les jours."""
+    now = datetime.datetime.now()
+    midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0, 0))
+    seconds_until_midnight = (midnight - now).total_seconds()
+
+    await asyncio.sleep(seconds_until_midnight)  # Attendre jusqu'à minuit
+    await reset_daily_data(None)  # Exécuter la réinitialisation
+
+    # 🔄 Replanifier l’exécution quotidienne
+    asyncio.create_task(schedule_daily_reset(application))
 
 
 # ✅ Fonction pour supprimer un message hors sujet avec /hs (réservé aux admins)
@@ -724,7 +751,6 @@ async def unclear_question(update: Update, context: CallbackContext) -> None:
 
 
 # Remplace `CHAT_ID` par l'ID de ton groupe
-CHAT_ID =-1001912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
 
 
 
@@ -828,6 +854,7 @@ def main():
 
     # Lancer le bot
     app.run_polling()
+    asyncio.create_task(schedule_daily_reset(app))
 
 
 if __name__ == "__main__":
