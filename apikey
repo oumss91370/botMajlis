@@ -183,3 +183,80 @@ async def initialize_last_question_number(context: CallbackContext, chat_id: int
         logging.error(f"❌ Erreur lors de l'initialisation de last_question_number pour {chat_id} : {e}")
         last_question_number[chat_id] = 0  # Sécurité en cas d'erreur
 **********************************************************
+
+
+async def check_question_number(update: Update, context: CallbackContext) -> None:
+    """Vérifie si un message contient un numéro de question valide (#XXX) et suit un incrément linéaire n+1."""
+
+    if not update.message:
+        return
+
+    user = update.message.from_user
+    message_text = update.message.text.strip()
+    chat_id = update.message.chat_id
+    mention = get_mention(user)
+    user_id = user.id
+    current_time = time.time()
+
+    # ✅ Vérifier si le bot a déjà initialisé le dernier numéro pour ce groupe
+    if chat_id not in last_question_number:
+        await initialize_last_question_number(context, chat_id)
+
+    # ✅ Ignorer si c'est une réponse à un autre message
+    if update.message.reply_to_message:
+        return
+
+    # ✅ Vérifier si l'utilisateur est un simple membre (exclure admins)
+    try:
+        chat_member = await context.bot.get_chat_member(chat_id, user_id)
+        if chat_member.status != "member":
+            return  # Ignorer les admins et autres rôles
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la vérification du statut pour {user_id} : {e}")
+        return
+
+    # ✅ Vérifier si c'est le premier message de l'utilisateur
+    if user_id not in user_first_message_time:
+        user_first_message_time[user_id] = current_time  # 🔹 Stocke l'heure du premier message
+        await asyncio.sleep(1)  # 🔹 Ajoute un délai de 1 seconde pour éviter les conflits
+
+    else:
+        return  # ❌ Si l'utilisateur a déjà envoyé un message, on ignore tous les suivants
+
+    # ✅ Vérifier si un `#` est présent dans le message
+    match = re.search(r"#(\d+)", message_text)
+    last_number = last_question_number.get(chat_id, 0)
+    expected_number = last_number + 1  # Toujours avancer de `n + 1`
+
+    if not match:
+        # 🔴 Si pas de `#`, on force l'utilisateur à en mettre un et on avance immédiatement
+        last_question_number[chat_id] = expected_number
+        await update.message.reply_text(
+            f"{mention} ❌ Veuillez inclure un numéro de question avec #{expected_number}."
+        )
+        return
+
+    # ✅ Extraire le numéro de la question
+    question_number = int(match.group(1))
+
+    # 🔴 Si le numéro est déjà utilisé ou en retard, on propose le prochain et on avance immédiatement
+    if question_number < last_number:
+        last_question_number[chat_id] = expected_number
+        await update.message.reply_text(
+            f"{mention} ❌ Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
+        )
+        return
+
+    # 🔴 Si l'utilisateur saute un numéro, on avance immédiatement et on propose le bon
+    if question_number > expected_number:
+        last_question_number[chat_id] = expected_number
+        await update.message.reply_text(
+            f"{mention} ❌ Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
+        )
+        return
+
+    # ✅ Tout est correct, on enregistre la question et on avance
+    last_question_number[chat_id] = question_number
+    logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
+    await check_and_close_group(update, context)
+

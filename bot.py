@@ -1,6 +1,7 @@
 import os
 import time
 import sys
+import re
 from dotenv import load_dotenv
 import datetime
 import asyncio
@@ -11,10 +12,9 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, CallbackQueryHandler
 from keep_alive import keep_alive
 
-
 load_dotenv()
-token=os.getenv('MAJLIS_TOKEN')
-CHAT_ID =-1001912372093   # ⚠️ Remplace avec l'ID réel de ton groupe
+token = os.getenv('MAJLIS_TOKEN')
+CHAT_ID = -1001912372093  # ⚠️ Remplace avec l'ID réel de ton groupe
 
 # Dictionnaire pour compter le nombre de questions posées chaque jour
 
@@ -26,7 +26,6 @@ logging.basicConfig(
 )
 
 # 📌 Lire le token depuis le fichier apikey
-
 
 
 TOKEN = token
@@ -49,9 +48,6 @@ async def start(update: Update, context: CallbackContext) -> None:
 # ✅ Fonction pour obtenir un `@username` même si l'utilisateur n'en a pas
 
 
-
-import re
-
 def get_mention(user):
     """Retourne @username si disponible, sinon affiche juste le prénom/nom sans lien."""
     if user.username:
@@ -62,6 +58,7 @@ def get_mention(user):
         clean_name = re.sub(r"([_*[\]()~`>#+-=|{}.!])", r"\\\1", first_name)  # Échapper MarkdownV2
 
         return f"@{clean_name}"  # ✅ Ajoute @ devant le prénom/nom
+
 
 # ✅ Fonction pour accueillir les nouveaux membres avec @username ou @NomPrenom
 
@@ -132,15 +129,16 @@ S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti franco
 📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
 """
 
-
                 # ✅ Envoyer le message avec le bouton "Accepter"
-                message = await update.message.reply_text(rules_message, parse_mode="MarkdownV2", reply_markup=reply_markup)
+                message = await update.message.reply_text(rules_message, parse_mode="MarkdownV2",
+                                                          reply_markup=reply_markup)
 
                 # 🔹 Sauvegarder l'ID du message pour suppression plus tard
                 context.chat_data[new_member.id] = message.message_id
 
             except Exception as e:
                 logging.error(f"Erreur lors de l'envoi du message de bienvenue : {e}")
+
 
 async def button_click(update: Update, context: CallbackContext) -> None:
     """Gère l'événement lorsque l'utilisateur clique sur 'Accepter'."""
@@ -160,7 +158,7 @@ async def button_click(update: Update, context: CallbackContext) -> None:
             del context.chat_data[user_id]  # Nettoyer la variable
 
         # ✅ Supprimer le message du bouton "Accepter"
-        #await query.message.delete()
+        # await query.message.delete()
 
         # ✅ Envoyer un message de confirmation
         await query.message.reply_text(
@@ -251,9 +249,10 @@ async def check_acceptance(update: Update, context: CallbackContext) -> None:
 # Fonction pour vérifier si un message respecte le bon format de numérotation
 
 
-
 # Dictionnaire pour stocker le dernier message d'un utilisateur
 user_last_question_time = {}
+
+
 async def initialize_last_question_number(context: CallbackContext, chat_id: int):
     """Récupère uniquement le dernier numéro #XXX trouvé dans le groupe et l'utilise comme référence."""
     try:
@@ -275,12 +274,13 @@ async def initialize_last_question_number(context: CallbackContext, chat_id: int
         logging.error(f"❌ Erreur lors de l'initialisation de last_question_number pour {chat_id} : {e}")
         last_question_number[chat_id] = 0  # Sécurité en cas d'erreur
 
+
 # ✅ Dictionnaire pour stocker le premier message du user dans le groupe
 user_first_message_time = {}
 
 
 async def check_question_number(update: Update, context: CallbackContext) -> None:
-    """Vérifie si un message contient un numéro de question valide (#XXX) et suit un incrément linéaire n+1."""
+    """Vérifie le premier message d'un utilisateur et ignore les suivants."""
 
     if not update.message:
         return
@@ -309,11 +309,12 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         logging.error(f"❌ Erreur lors de la vérification du statut pour {user_id} : {e}")
         return
 
-    # ✅ Vérifier si c'est le premier message de l'utilisateur
-    if user_id not in user_first_message_time:
-        user_first_message_time[user_id] = current_time  # 🔹 Stocke l'heure du premier message
-    else:
-        return  # ❌ Si l'utilisateur a déjà envoyé un message, on ignore tous les suivants
+    # ✅ Si l'utilisateur a déjà été vérifié, on ignore tous ses messages suivants
+    if user_id in user_first_message_time:
+        return
+
+    # ✅ Enregistrer la première participation de l'utilisateur
+    user_first_message_time[user_id] = current_time
 
     # ✅ Vérifier si un `#` est présent dans le message
     match = re.search(r"#(\d+)", message_text)
@@ -326,32 +327,29 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         await update.message.reply_text(
             f"{mention} ❌ Veuillez inclure un numéro de question avec #{expected_number}."
         )
-        return
+    else:
+        # ✅ Extraire le numéro de la question
+        question_number = int(match.group(1))
 
-    # ✅ Extraire le numéro de la question
-    question_number = int(match.group(1))
+        # 🔴 Si le numéro est déjà utilisé ou en retard, on propose le prochain et on avance immédiatement
+        if question_number < last_number:
+            last_question_number[chat_id] = expected_number
+            await update.message.reply_text(
+                f"{mention} ❌ Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
+            )
+        # 🔴 Si l'utilisateur saute un numéro, on avance immédiatement et on propose le bon
+        elif question_number > expected_number:
+            last_question_number[chat_id] = expected_number
+            await update.message.reply_text(
+                f"{mention} ❌ Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
+            )
+        else:
+            # ✅ Tout est correct, on enregistre la question et on avance
+            last_question_number[chat_id] = question_number
+            logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
 
-    # 🔴 Si le numéro est déjà utilisé ou en retard, on propose le prochain et on avance immédiatement
-    if question_number < last_number:
-        last_question_number[chat_id] = expected_number
-        await update.message.reply_text(
-            f"{mention} ❌ Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
-        )
-        return
-
-    # 🔴 Si l'utilisateur saute un numéro, on avance immédiatement et on propose le bon
-    if question_number > expected_number:
-        last_question_number[chat_id] = expected_number
-        await update.message.reply_text(
-            f"{mention} ❌ Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
-        )
-        return
-
-    # ✅ Tout est correct, on enregistre la question et on avance
-    last_question_number[chat_id] = question_number
-    logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
-
-
+    # ✅ Vérifier si on doit fermer le groupe après cette question
+    await check_and_close_group(update, context)
 
 
 async def reset_daily_data(context: CallbackContext) -> None:
@@ -466,10 +464,7 @@ async def remove_waswas_message(update: Update, context: CallbackContext) -> Non
             await update.message.reply_text("❌ Impossible de supprimer ce message.")
 
 
-
-
-
-#/jeune
+# /jeune
 async def send_fasting_info(update: Update, context: CallbackContext) -> None:
     """Envoie une réponse automatique sur le fiqh du jeûne lorsque /jeune est utilisé en réponse."""
 
@@ -512,6 +507,7 @@ async def send_fasting_info(update: Update, context: CallbackContext) -> None:
         except Exception as e:
             logging.error(f"❌ Erreur lors de l'envoi du message /jeune : {e}")
             await update.message.reply_text("❌ Impossible d'envoyer le message.")
+
 
 # ✅ Ajouter la commande au gestionnaire
 
@@ -566,49 +562,42 @@ async def remove_excess_question(update: Update, context: CallbackContext) -> No
         except Exception as e:
             logging.error(f"Erreur lors de la suppression de la question en trop : {e}")
             await update.message.reply_text("❌ Impossible de supprimer ce message.")
+users_who_asked_today = {}  # Dictionnaire qui stocke les utilisateurs ayant posé une question aujourd'hui
 
-
-# ✅ Activer les logs une seule fois au début du script
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
 
 # ✅ Dictionnaire pour stocker les questions du jour
 
 async def check_and_close_group(update: Update, context: CallbackContext) -> None:
     """Ferme le groupe si 10 questions ont été posées dans la journée."""
-    global questions_today
+    global questions_today, users_who_asked_today  # Ajout de la nouvelle liste
 
-    if not update.message:
+    if not update.message or not update.message.text:
         return
 
+    user_id = update.message.from_user.id
     chat_id = update.message.chat_id
     today = datetime.date.today()
-    message_text = update.message.text
 
     # ✅ Vérifier si c'est une nouvelle journée (reset du compteur)
     if chat_id not in questions_today or questions_today[chat_id]["date"] != today:
         questions_today[chat_id] = {"count": 0, "date": today}
-        logging.info(f"🔄 Réinitialisation des questions du jour pour le groupe {chat_id}.")
+        users_who_asked_today[chat_id] = set()  # Réinitialiser la liste des utilisateurs du jour
+        logging.info(f"🔄 Réinitialisation du compteur de questions pour le groupe {chat_id}.")
 
-    # ✅ Extraire le numéro de la question avec regex
-    match = re.match(r"#(\d+)", message_text)
-
-    if match:
+    # ✅ Vérifier si l'utilisateur a déjà posé une question aujourd'hui
+    if user_id not in users_who_asked_today[chat_id]:  # 🚀 Si c'est son premier message du jour
         questions_today[chat_id]["count"] += 1
         count = questions_today[chat_id]["count"]
+        logging.info(f"📊 Nombre de questions posées aujourd'hui dans {chat_id} : {count}")
 
-        # ✅ Log du nombre actuel de questions
-        logging.info(f"📊 {count} question(s) posée(s) aujourd'hui dans le groupe {chat_id}.")
+        # ✅ Ajouter l'utilisateur à la liste des utilisateurs ayant posé une question aujourd'hui
+        users_who_asked_today[chat_id].add(user_id)
 
-        # ✅ Forcer l'affichage du log immédiatement
-        sys.stdout.flush()
+    # ✅ Vérifier si la limite de 10 questions est atteinte
+    if questions_today[chat_id]["count"] >= 10:
+        logging.warning(f"🚨 Limite de 10 questions atteinte dans {chat_id}. Fermeture du groupe.")
+        await close_group_until_midnight(update, context)
 
-        # ✅ Vérifier si la limite de 10 questions est atteinte
-        if count >= 10:
-            logging.warning(f"🚨 Limite de 10 questions atteinte dans {chat_id}. Fermeture du groupe.")
-            await close_group_until_midnight(update, context)
 
 async def close_group_until_midnight(update: Update, context: CallbackContext) -> None:
     """Ferme le groupe jusqu'à minuit."""
@@ -633,18 +622,19 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
 
         # ⏳ Calcul du temps restant jusqu'à minuit
         now = datetime.datetime.now()
-        midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0, 0))
-        seconds_until_midnight = (midnight - now).total_seconds()
+        reopen_time = datetime.datetime.combine(now.date(), datetime.time(23, 59))
+        seconds_until_reopen = (reopen_time - now).total_seconds()
 
         # ✅ Planifier la réouverture du groupe à minuit
-        asyncio.create_task(reopen_group_at_midnight(chat_id, context, seconds_until_midnight))
+        asyncio.create_task(reopen_group_at_2359(chat_id, context, seconds_until_reopen))
 
     except Exception as e:
         logging.error(f"❌ Erreur lors de la fermeture du groupe : {e}")
 
-async def reopen_group_at_midnight(chat_id, context, delay):
-    """Attend jusqu'à minuit et réactive les messages."""
-    await asyncio.sleep(delay)  # Attendre jusqu'à 00h00
+
+async def reopen_group_at_2359(chat_id, context, delay):
+    """Attend jusqu'à 23h59 et réactive les messages."""
+    await asyncio.sleep(delay)  # Attendre jusqu'à 23h59
 
     try:
         # 🔓 Réactiver les messages
@@ -666,6 +656,7 @@ async def reopen_group_at_midnight(chat_id, context, delay):
 
     except Exception as e:
         logging.error(f"❌ Erreur lors de la réouverture du groupe : {e}")
+
 
 async def ban_user(update: Update, context: CallbackContext) -> None:
     """Bannit un utilisateur du groupe si un admin utilise /ban en réponse à un message."""
@@ -702,9 +693,8 @@ async def ban_user(update: Update, context: CallbackContext) -> None:
             await update.message.reply_text("❌ Impossible de bannir cet utilisateur.")
 
     else:
-        await update.message.reply_text("❌ Utilisation incorrecte. Répondez à un message avec `/ban` pour bannir un utilisateur.")
-
-
+        await update.message.reply_text(
+            "❌ Utilisation incorrecte. Répondez à un message avec `/ban` pour bannir un utilisateur.")
 
 
 async def unclear_question(update: Update, context: CallbackContext) -> None:
@@ -753,8 +743,6 @@ async def unclear_question(update: Update, context: CallbackContext) -> None:
 # Remplace `CHAT_ID` par l'ID de ton groupe
 
 
-
-
 async def send_daily_message(context: CallbackContext) -> None:
     """Envoie un message quotidien à 00h01."""
     message = (
@@ -773,6 +761,7 @@ async def send_daily_message(context: CallbackContext) -> None:
     except Exception as e:
         logging.error(f"❌ Erreur lors de l'envoi du message quotidien : {e}")
 
+
 def schedule_daily_message(application: Application) -> None:
     """Planifie l'envoi du message quotidien à 00h01."""
     job_queue = application.job_queue
@@ -788,8 +777,8 @@ def schedule_daily_message(application: Application) -> None:
     logging.info("✅ Message quotidien planifié pour 00h01.")
 
 
-
 CHAT_IDtest = -1002391499606  # Remplace par l'ID du canal où tu veux exécuter la tâche
+
 
 async def keep_bot_active(context: CallbackContext) -> None:
     """Tâche exécutée toutes les 3 minutes uniquement dans un canal spécifique."""
@@ -805,7 +794,6 @@ async def keep_bot_active(context: CallbackContext) -> None:
 
 # ✅ Fonction principale
 def main():
-
     keep_alive()  # Garde le bot en ligne
 
     logging.info("Démarrage du bot...")
@@ -813,9 +801,9 @@ def main():
     app = Application.builder().token(TOKEN).build()
     # ✅ Planifier la tâche toutes les 3 minutes UNIQUEMENT sur le canal défini
     job_queue = app.job_queue
-    job_queue.run_repeating(keep_bot_active, interval=180, first=10)  # 🔄 Exécution toutes les 3 minutes
+    job_queue.run_repeating(keep_bot_active, interval=400, first=10)  # 🔄 Exécution toutes les 3 minutes
 
-    #message quotidien
+    # message quotidien
     schedule_daily_message(app)
 
     #
@@ -832,7 +820,7 @@ def main():
     app.add_handler(CommandHandler("pc", unclear_question))
 
     # Vérification de l'acceptation des règles
-    #app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_acceptance))
+    # app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_acceptance))
 
     # fonction hs
     app.add_handler(CommandHandler("hs", remove_off_topic))
@@ -849,7 +837,7 @@ def main():
     app.add_handler(CommandHandler("dr", already_answered))
     app.add_handler(CommandHandler("jeune", send_fasting_info))
 
-    #boutton
+    # boutton
     app.add_handler(CallbackQueryHandler(button_click, pattern=r"^accept_\d+$"))
 
     # Lancer le bot
