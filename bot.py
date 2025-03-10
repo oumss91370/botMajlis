@@ -615,7 +615,8 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
         # 🔒 Bloquer l'envoi de messages
         await context.bot.set_chat_permissions(
             chat_id=chat_id,
-            permissions=ChatPermissions(can_send_messages=False)
+            permissions=ChatPermissions( can_send_messages=False,      # 🔴 Bloque l'envoi de messages
+                can_send_other_messages=False )
         )
 
         # 📢 Envoyer un message d'information
