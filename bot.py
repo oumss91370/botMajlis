@@ -353,13 +353,21 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
 
 
 async def reset_daily_data(context: CallbackContext) -> None:
-    """Réinitialise le stockage des questions et des timestamps chaque jour à minuit."""
-    global last_question_number, user_first_message_time
+    """Réinitialise les questions quotidiennes et les timestamps tout en conservant les derniers numéros de question."""
+    global last_question_number, user_first_message_time, questions_today
 
-    last_question_number.clear()  # 🔄 Réinitialiser la numérotation des questions
-    user_first_message_time.clear()  # 🔄 Réinitialiser les premiers messages des utilisateurs
+    # 🔹 Sauvegarder les dernières valeurs de `last_question_number`
+    last_values = last_question_number.copy()
 
-    logging.info("🔄 Réinitialisation quotidienne des données terminée.")
+    # 🔄 Réinitialiser uniquement les données journalières
+    questions_today.clear()
+    user_first_message_time.clear()
+
+    # ✅ Restaurer les dernières valeurs de `last_question_number`
+    last_question_number.clear()
+    last_question_number.update(last_values)  # Restaure les dernières valeurs enregistrées
+
+    logging.info("🔄 Réinitialisation quotidienne terminée avec conservation du dernier numéro de question.")
 
 
 async def schedule_daily_reset(application: Application) -> None:
@@ -619,6 +627,10 @@ async def close_group_until_midnight(update: Update, context: CallbackContext) -
         )
 
         logging.info(f"🔒 Groupe {chat_id} fermé jusqu'à minuit.")
+
+        # ✅ Réinitialiser immédiatement le compteur de questions
+        questions_today[chat_id] = {"count": 0, "date": datetime.date.today()}
+        logging.info(f"🔄 Réinitialisation immédiate du compteur pour {chat_id}.")
 
         # ⏳ Calcul du temps restant jusqu'à minuit
         now = datetime.datetime.now()
