@@ -35,14 +35,6 @@ last_question_number = {}
 user_welcome_messages = {}
 
 
-# Fonction /start
-async def start(update: Update, context: CallbackContext) -> None:
-    if update.message:
-        chat_type = update.message.chat.type
-        if chat_type == "private":
-            await update.message.reply_text("👋 Salut ! Je suis actif en mode privé.")
-        else:
-            await update.message.reply_text("✅ Je suis actif dans ce groupe !")
 
 
 # ✅ Fonction pour obtenir un `@username` même si l'utilisateur n'en a pas
@@ -325,7 +317,7 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         # 🔴 Si pas de `#`, on force l'utilisateur à en mettre un et on avance immédiatement
         last_question_number[chat_id] = expected_number
         await update.message.reply_text(
-            f"{mention} ❌ Veuillez inclure un numéro de question avec #{expected_number}."
+            f"{mention} As-salam aleykoum, il semble que vous ayez oublié d'inclure un numéro de question. Pourriez-vous, s'il vous plaît, ajouter #{expected_number} Baarak Allahu fik."
         )
     else:
         # ✅ Extraire le numéro de la question
@@ -335,13 +327,13 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
         if question_number < last_number:
             last_question_number[chat_id] = expected_number
             await update.message.reply_text(
-                f"{mention} ❌ Ce numéro est déjà utilisé. Veuillez utiliser #{expected_number}."
+                f"{mention}  As-salam aleykoum, ce numéro semble déjà avoir été utilisé.  Je vous invite à utiliser plutôt #{expected_number}. Baarak Allahu fik."
             )
         # 🔴 Si l'utilisateur saute un numéro, on avance immédiatement et on propose le bon
         elif question_number > expected_number:
             last_question_number[chat_id] = expected_number
             await update.message.reply_text(
-                f"{mention} ❌ Vous avez sauté des numéros ! Le bon numéro est #{expected_number}."
+                f"{mention} As-salam aleykoum, il semble que certains numéros aient été sautés. 😊 Je vous invite à utiliser le numéro #{expected_number}. Baarak Allahu fik."
             )
         else:
             # ✅ Tout est correct, on enregistre la question et on avance
@@ -470,6 +462,48 @@ async def remove_waswas_message(update: Update, context: CallbackContext) -> Non
         except Exception as e:
             logging.error(f"Erreur lors de la suppression du message de waswas : {e}")
             await update.message.reply_text("❌ Impossible de supprimer ce message.")
+
+async def remove_private_message(update: Update, context: CallbackContext) -> None:
+    """Supprime un message si un admin utilise /priver en réponse et informe l'utilisateur directement dans le groupe."""
+    if update.message and update.message.reply_to_message:
+        user = update.message.from_user  # L'admin ou la personne utilisant la commande
+        chat_id = update.message.chat_id
+        message_to_delete = update.message.reply_to_message
+        target_user = message_to_delete.from_user  # Utilisateur dont le message est supprimé
+
+        # ✅ Vérifier si l'utilisateur est un "member" (les autres statuts sont autorisés)
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+            if chat_member.status == "member":
+                return  # ❌ Bloquer uniquement les "members"
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
+            return
+
+        try:
+            # ✅ Supprimer le message du membre contenant la question privée
+            await context.bot.delete_message(chat_id, message_to_delete.message_id)
+
+            # ✅ Mentionner l'utilisateur concerné correctement
+            mention = get_mention(target_user)
+
+            # ✅ Envoyer un message expliquant la suppression
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"⚠️ {mention}, *votre question semble privée ou expose potentiellement des péchés.*\n\n"
+                     "📌 *Je vous invite à poser votre question en privé à @questionsprivees.*\n"
+                     "Nous vous remercions pour votre compréhension.",
+                parse_mode="Markdown"
+            )
+
+            # ✅ Supprimer le message de l'admin contenant /priver
+            await context.bot.delete_message(chat_id, update.message.message_id)
+
+        except Exception as e:
+            logging.error(f"❌ Erreur lors de la suppression du message privé : {e}")
+            await update.message.reply_text("❌ Impossible de supprimer ce message.")
+
 
 
 # /jeune
@@ -755,6 +789,72 @@ async def unclear_question(update: Update, context: CallbackContext) -> None:
 
 # Remplace `CHAT_ID` par l'ID de ton groupe
 
+async def correction(update: Update, context: CallbackContext) -> None:
+    """Décrémente le dernier numéro de question manuellement via la commande /correction avec vérification admin."""
+    if not update.message:
+        return
+
+    user = update.message.from_user
+    chat_id = update.message.chat_id
+
+    # ✅ Vérifier si l'utilisateur est un admin
+    try:
+        chat_member = await context.bot.get_chat_member(chat_id, user.id)
+        if chat_member.status == "member":
+            await update.message.reply_text("❌")
+            return
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
+        return
+
+    # ✅ Décrémenter le dernier numéro de question
+    if chat_id in last_question_number and last_question_number[chat_id] > 0:
+        last_question_number[chat_id] -= 1
+        logging.info(
+            f"➖ Décrément manuel dans le groupe {chat_id}. Nouveau dernier numéro : #{last_question_number[chat_id]}")
+
+    # ✅ Supprimer immédiatement le message de l'admin
+    try:
+        await update.message.delete()
+    except Exception as e:
+        logging.error(f"❌ Impossible de supprimer le message de commande /correction : {e}")
+
+
+
+
+async def plus(update: Update, context: CallbackContext) -> None:
+    """Incrémente le dernier numéro de question manuellement via la commande /plus avec vérification admin."""
+    if not update.message:
+        return
+
+    user = update.message.from_user
+    chat_id = update.message.chat_id
+
+    # ✅ Vérifier si l'utilisateur est un admin
+    try:
+        chat_member = await context.bot.get_chat_member(chat_id, user.id)
+        if chat_member.status == "member":
+            await update.message.reply_text("❌")
+            return
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la vérification du statut pour {user.id} : {e}")
+        return
+
+    # ✅ Incrémenter le dernier numéro de question
+    if chat_id not in last_question_number:
+        last_question_number[chat_id] = 0
+
+    last_question_number[chat_id] += 1
+    logging.info(f"➕ Incrément manuel dans le groupe {chat_id}. Nouveau dernier numéro : #{last_question_number[chat_id]}")
+
+    # ✅ Supprimer immédiatement le message de l'admin
+    try:
+        await update.message.delete()
+    except Exception as e:
+        logging.error(f"❌ Impossible de supprimer le message de commande /plus : {e}")
+
+
+# ✅ Ajouter le handler de la commande /plus
 
 async def send_daily_message(context: CallbackContext) -> None:
     """Envoie un message quotidien à 00h01."""
@@ -820,7 +920,6 @@ def main():
     schedule_daily_message(app)
 
     #
-    app.add_handler(CommandHandler("start", start))
 
     # Gestion des nouveaux membres
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
@@ -829,7 +928,9 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_question_number))
 
     app.add_handler(CommandHandler("1", remove_excess_question))
-
+    app.add_handler(CommandHandler("correction", correction))
+    app.add_handler(CommandHandler("plus", plus))
+    app.add_handler(CommandHandler("priver", remove_private_message))
     app.add_handler(CommandHandler("pc", unclear_question))
 
     # Vérification de l'acceptation des règles
