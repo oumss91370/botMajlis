@@ -1,6 +1,6 @@
 import os
 import time
-import sys
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import re
 from dotenv import load_dotenv
 import datetime
@@ -269,13 +269,44 @@ async def initialize_last_question_number(context: CallbackContext, chat_id: int
 
 # ✅ Dictionnaire pour stocker le premier message du user dans le groupe
 user_first_message_time = {}
+last_reset_date = datetime.date.today()
 
+
+# ✅ Dictionnaire pour stocker la date de réinitialisation
+
+async def reset_daily_data():
+    """Réinitialise les questions quotidiennes et les timestamps tout en conservant les derniers numéros de question."""
+    global last_question_number, user_first_message_time, questions_today
+
+    # 🔹 Sauvegarder les dernières valeurs de `last_question_number` uniquement si elle n'est pas vide
+    if last_question_number:
+        last_values = last_question_number.copy()
+    else:
+        last_values = {}
+
+    # 🔄 Réinitialiser uniquement les données journalières
+    questions_today.clear()
+    user_first_message_time.clear()
+
+    # ✅ Restaurer les dernières valeurs de `last_question_number`
+    last_question_number.clear()
+    last_question_number.update(last_values)  # Restaure les dernières valeurs enregistrées
+
+    logging.info("🔄 Réinitialisation quotidienne terminée avec conservation du dernier numéro de question.")
 
 async def check_question_number(update: Update, context: CallbackContext) -> None:
     """Vérifie le premier message d'un utilisateur et ignore les suivants."""
+    global last_reset_date
 
     if not update.message:
         return
+        # 🔄 Vérification quotidienne pour réinitialiser `user_first_message_time` au début de chaque journée
+        today = datetime.date.today()
+        if today != last_reset_date:
+            user_first_message_time.clear()  # 🔄 Réinitialise les participants de la veille
+            last_reset_date = today
+            logging.info("🔄 Réinitialisation quotidienne automatique des participants.")
+
 
     user = update.message.from_user
     message_text = update.message.text.strip()
@@ -341,38 +372,14 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
             logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
 
     # ✅ Vérifier si on doit fermer le groupe après cette question
-    await check_and_close_group(update, context)
+    #await check_and_close_group(update, context)
 
+# ✅ Planification fiable avec `apscheduler`
+def schedule_daily_reset():
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(reset_daily_data, 'cron', hour=0, minute=0)  # Tous les jours à minuit
+    scheduler.start()
 
-async def reset_daily_data(context: CallbackContext) -> None:
-    """Réinitialise les questions quotidiennes et les timestamps tout en conservant les derniers numéros de question."""
-    global last_question_number, user_first_message_time, questions_today
-
-    # 🔹 Sauvegarder les dernières valeurs de `last_question_number`
-    last_values = last_question_number.copy()
-
-    # 🔄 Réinitialiser uniquement les données journalières
-    questions_today.clear()
-    user_first_message_time.clear()
-
-    # ✅ Restaurer les dernières valeurs de `last_question_number`
-    last_question_number.clear()
-    last_question_number.update(last_values)  # Restaure les dernières valeurs enregistrées
-
-    logging.info("🔄 Réinitialisation quotidienne terminée avec conservation du dernier numéro de question.")
-
-
-async def schedule_daily_reset(application: Application) -> None:
-    """Planifie la réinitialisation automatique à minuit tous les jours."""
-    now = datetime.datetime.now()
-    midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0, 0))
-    seconds_until_midnight = (midnight - now).total_seconds()
-
-    await asyncio.sleep(seconds_until_midnight)  # Attendre jusqu'à minuit
-    await reset_daily_data(None)  # Exécuter la réinitialisation
-
-    # 🔄 Replanifier l’exécution quotidienne
-    asyncio.create_task(schedule_daily_reset(application))
 
 
 # ✅ Fonction pour supprimer un message hors sujet avec /hs (réservé aux admins)
@@ -609,74 +616,74 @@ users_who_asked_today = {}  # Dictionnaire qui stocke les utilisateurs ayant pos
 
 # ✅ Dictionnaire pour stocker les questions du jour
 
-async def check_and_close_group(update: Update, context: CallbackContext) -> None:
-    """Ferme le groupe si 10 questions ont été posées dans la journée."""
-    global questions_today, users_who_asked_today  # Ajout de la nouvelle liste
+# async def check_and_close_group(update: Update, context: CallbackContext) -> None:
+#     """Ferme le groupe si 10 questions ont été posées dans la journée."""
+#     global questions_today, users_who_asked_today  # Ajout de la nouvelle liste
+#
+#     if not update.message or not update.message.text:
+#         return
+#
+#     user_id = update.message.from_user.id
+#     chat_id = update.message.chat_id
+#     today = datetime.date.today()
+#
+#     # ✅ Vérifier si c'est une nouvelle journée (reset du compteur)
+#     if chat_id not in questions_today or questions_today[chat_id]["date"] != today:
+#         questions_today[chat_id] = {"count": 0, "date": today}
+#         users_who_asked_today[chat_id] = set()  # Réinitialiser la liste des utilisateurs du jour
+#         logging.info(f"🔄 Réinitialisation du compteur de questions pour le groupe {chat_id}.")
+#
+#     # ✅ Vérifier si l'utilisateur a déjà posé une question aujourd'hui
+#     if user_id not in users_who_asked_today[chat_id]:  # 🚀 Si c'est son premier message du jour
+#         questions_today[chat_id]["count"] += 1
+#         count = questions_today[chat_id]["count"]
+#         logging.info(f"📊 Nombre de questions posées aujourd'hui dans {chat_id} : {count}")
+#
+#         # ✅ Ajouter l'utilisateur à la liste des utilisateurs ayant posé une question aujourd'hui
+#         users_who_asked_today[chat_id].add(user_id)
+#
+#     # ✅ Vérifier si la limite de 10 questions est atteinte
+#     if questions_today[chat_id]["count"] >= 10:
+#         logging.warning(f"🚨 Limite de 10 questions atteinte dans {chat_id}. Fermeture du groupe.")
+#         await close_group_until_midnight(update, context)
 
-    if not update.message or not update.message.text:
-        return
 
-    user_id = update.message.from_user.id
-    chat_id = update.message.chat_id
-    today = datetime.date.today()
-
-    # ✅ Vérifier si c'est une nouvelle journée (reset du compteur)
-    if chat_id not in questions_today or questions_today[chat_id]["date"] != today:
-        questions_today[chat_id] = {"count": 0, "date": today}
-        users_who_asked_today[chat_id] = set()  # Réinitialiser la liste des utilisateurs du jour
-        logging.info(f"🔄 Réinitialisation du compteur de questions pour le groupe {chat_id}.")
-
-    # ✅ Vérifier si l'utilisateur a déjà posé une question aujourd'hui
-    if user_id not in users_who_asked_today[chat_id]:  # 🚀 Si c'est son premier message du jour
-        questions_today[chat_id]["count"] += 1
-        count = questions_today[chat_id]["count"]
-        logging.info(f"📊 Nombre de questions posées aujourd'hui dans {chat_id} : {count}")
-
-        # ✅ Ajouter l'utilisateur à la liste des utilisateurs ayant posé une question aujourd'hui
-        users_who_asked_today[chat_id].add(user_id)
-
-    # ✅ Vérifier si la limite de 10 questions est atteinte
-    if questions_today[chat_id]["count"] >= 10:
-        logging.warning(f"🚨 Limite de 10 questions atteinte dans {chat_id}. Fermeture du groupe.")
-        await close_group_until_midnight(update, context)
-
-
-async def close_group_until_midnight(update: Update, context: CallbackContext) -> None:
-    """Ferme le groupe jusqu'à minuit."""
-    chat_id = update.message.chat_id
-
-    try:
-        # 🔒 Bloquer l'envoi de messages
-        await context.bot.set_chat_permissions(
-            chat_id=chat_id,
-            permissions=ChatPermissions( can_send_messages=False,      # 🔴 Bloque l'envoi de messages
-                can_send_other_messages=False )
-        )
-
-        # 📢 Envoyer un message d'information
-        await update.message.reply_text(
-            "⚠️ *La limite de 10 questions a été atteinte pour aujourd’hui.*\n\n"
-            "📌 *Le groupe est fermé jusqu'à minuit.*\n"
-            "📌 *En cas d’urgence, contactez @questionsprivees.*",
-            parse_mode="Markdown"
-        )
-
-        logging.info(f"🔒 Groupe {chat_id} fermé jusqu'à minuit.")
-
-        # ✅ Réinitialiser immédiatement le compteur de questions
-        questions_today[chat_id] = {"count": 0, "date": datetime.date.today()}
-        logging.info(f"🔄 Réinitialisation immédiate du compteur pour {chat_id}.")
-
-        # ⏳ Calcul du temps restant jusqu'à minuit
-        now = datetime.datetime.now()
-        reopen_time = datetime.datetime.combine(now.date(), datetime.time(23, 59))
-        seconds_until_reopen = (reopen_time - now).total_seconds()
-
-        # ✅ Planifier la réouverture du groupe à minuit
-        asyncio.create_task(reopen_group_at_2359(chat_id, context, seconds_until_reopen))
-
-    except Exception as e:
-        logging.error(f"❌ Erreur lors de la fermeture du groupe : {e}")
+# async def close_group_until_midnight(update: Update, context: CallbackContext) -> None:
+#     """Ferme le groupe jusqu'à minuit."""
+#     chat_id = update.message.chat_id
+#
+#     try:
+#         # 🔒 Bloquer l'envoi de messages
+#         await context.bot.set_chat_permissions(
+#             chat_id=chat_id,
+#             permissions=ChatPermissions( can_send_messages=False,      # 🔴 Bloque l'envoi de messages
+#                 can_send_other_messages=False )
+#         )
+#
+#         # 📢 Envoyer un message d'information
+#         await update.message.reply_text(
+#             "⚠️ *La limite de 10 questions a été atteinte pour aujourd’hui.*\n\n"
+#             "📌 *Le groupe est fermé jusqu'à minuit.*\n"
+#             "📌 *En cas d’urgence, contactez @questionsprivees.*",
+#             parse_mode="Markdown"
+#         )
+#
+#         logging.info(f"🔒 Groupe {chat_id} fermé jusqu'à minuit.")
+#
+#         # ✅ Réinitialiser immédiatement le compteur de questions
+#         questions_today[chat_id] = {"count": 0, "date": datetime.date.today()}
+#         logging.info(f"🔄 Réinitialisation immédiate du compteur pour {chat_id}.")
+#
+#         # ⏳ Calcul du temps restant jusqu'à minuit
+#         now = datetime.datetime.now()
+#         reopen_time = datetime.datetime.combine(now.date(), datetime.time(23, 59))
+#         seconds_until_reopen = (reopen_time - now).total_seconds()
+#
+#         # ✅ Planifier la réouverture du groupe à minuit
+#         asyncio.create_task(reopen_group_at_2359(chat_id, context, seconds_until_reopen))
+#
+#     except Exception as e:
+#         logging.error(f"❌ Erreur lors de la fermeture du groupe : {e}")
 
 
 async def reopen_group_at_2359(chat_id, context, delay):
@@ -944,7 +951,7 @@ def main():
 
     # app.add_handler(CommandHandler("10", close_group_for_6h))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_and_close_group))
+    #app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_and_close_group))
 
     app.add_handler(CommandHandler("ban", ban_user))
 
