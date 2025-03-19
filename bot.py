@@ -81,52 +81,51 @@ async def welcome_new_member(update: Update, context: CallbackContext) -> None:
 
                 # ✅ Message de bienvenue avec bouton
                 rules_message = f"""
-🎉 *Bienvenue {mention} dans le groupe* *Q\\&R Malikiyyah* \\! 🎊
+                🎉 *Bienvenue {mention} dans le groupe Q\\&R Malikiyyah* \\! 🎊
 
-📌 *__Comment poser une question__ \\?*
-\\#N° \\[suivre l'ordre\\] \\+ N° \\[suivre l'ordre du jour\\] \\+ Question
-Exemple : \\#625 1 L'urine de bébé est\\-elle impure \\?
+                📌 **Rappel des règles :**
 
-📌 *__OBJECTIF DU GROUPE__* :
-Trouver des réponses à vos questions de fiqh, de 'aqiidah et de tasawwuf touchant à votre pratique\\.
+                📌 *__OBJECTIF DU GROUPE__* :
+                Trouver des réponses à vos questions de fiqh, de 'aqiidah et de tasawwuf touchant à votre pratique.
 
-⚠️ Ce groupe *n’est pas un substitut* à l’apprentissage de votre religion\\.
-📌 **[Pour suivre des cours cliquez ici](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
+                ⚠️ Ce groupe *n’est pas un substitut* à l’apprentissage de votre religion. 
+                📌 **Pour suivre des cours cliquez [ici](https://www.notion.so/majlisalfatih/Cours-574a6ea54b2d4134b18a7d362ca7d00f)**
 
-📌 *__Qui répond aux questions ici__ \\?*
+                📌 *__QUI RÉPOND AUX QUESTIONS ICI__* :
 
-• **Abdullah Mathieu Gallant**
-• **Saifoullah Abu Muhammad**
-• **Admin\\(s\\) \\( @ibtisaamou pour les sœurs \\)**
+                • **[Ustadh Abdullah Gallant](https://majlisalfatih.weebly.com/ustadh-abdullah-gallant.html)**
+                • **[Ustadh Ashama (أصحمة) as-Sarbilî](https://docs.google.com/document/d/1A_70CxAX6XlQC3sWZgAAoOdiYXBlc0C9gN9YJhy1AcU/edit?tab=t.0)**
+                • **[Ustadh Saifullah Abu Muhammad](https://majlisalfatih.weebly.com/autres-enseignants.html)**
+                • **Admin(s) (@ibtisaamou pour les sœurs)**
 
-📌 **[Pour connaître leur cursus, leurs shuyuukh, clique ici](https://www.notion.so/majlisalfatih/46691c76bd6e441483fcdd211d5880df?v=ec736494d7cd446783c655cb0dbb6e58)**
+                📌 **[Pour connaître leur cursus et leurs shuyuukh, cliquez sur leur nom. **
 
-Ils sont tous deux des étudiants avancés en sciences islamiques qui ont l'autorisation de leurs shuyûkh pour enseigner et répondre aux questions, mais ils ne pourront pas avoir réponse à tout\\.
+                Ils sont tous des étudiants avancés en sciences islamiques qui ont l'autorisation de leurs shuyûkh pour enseigner et répondre aux questions, mais ils ne pourront pas avoir réponse à tout.
 
-S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti francophone\\.
+                S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti francophone.
 
-📌 **[🔗 Rejoindre le groupe Q\\&R Malikiyyah](https://t.me/+ZBL9frEFpvYyNThh)**
+                📌 **[🔗 Rejoindre le groupe Q\\&R Malikiyyah](https://t.me/+ZBL9frEFpvYyNThh)**
 
-📌 *__RÈGLES DU GROUPE__*
+                📌 *__RÈGLES DU GROUPE__*
 
-    • ⚠️ *Une seule question par membre par jour* ⚠️
-    • ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️
-• Les enseignants ont besoin de faire des recherches pour certaines questions, aussi par respect nous vous demandons de ne pas les relancer systématiquement mais de patienter 24h avant de le faire\\.
-    • Pas de questions théoriques sans application pratique \\(ex\\. hukm de manger de la sirène\\)\\.
-    • Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques\\.
-    • **__Interdit de partager les réponses sans permission__**
-    • Pas de débats ni d’échanges entre les membres\\.
-    • Il n'est pas permis de répondre à la place des admins\\.
+                • ⚠️ *Une seule question par membre par jour* ⚠️
+                • ⚠️ *__NUMÉROTEZ VOS QUESTIONS SVP__* ⚠️
+                • Les enseignants ont besoin de faire des recherches pour certaines questions, aussi par respect nous vous demandons de ne pas les relancer systématiquement mais de patienter 24h avant de le faire.
+                • Pas de questions théoriques sans application pratique (ex. hukm de manger de la sirène).
+                • Vous pouvez demander des précisions si la réponse donnée n'est pas claire, mais évitez de demander le raison d'être et les preuves des statuts juridiques.
+                • **__Interdit de partager les réponses sans permission__**
+                • Pas de débats ni d’échanges entre les membres.
+                • Il n'est pas permis de répondre à la place des admins.
 
-⚠️ *__Non respect \\= EXPULSION__*
+                ⚠️ *__Non respect = EXPULSION__*
 
-📌 *__À TITRE INFORMATIF__*
+                📌 *__À TITRE INFORMATIF__*
 
-📌 **Veuillez vous adresser à [l'IFI](https://institut-francophone-iftaa.com/question)** si vous avez besoin d'une fatwa\\.
-• *Pas de réponse aux questions sensibles, les envoyez à * @questionsprivees
+                📌 **Veuillez vous adresser à l'[IFI](https://institut-francophone-iftaa.com/question)** si vous avez besoin d'une fatwa.
+                • *Pas de réponse aux questions sensibles, les envoyez à * @questionsprivees
 
-📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
-"""
+                📌 **✅ {mention}, pour continuer, veuillez cliquer sur "accepter"\\.**
+                """
 
                 # ✅ Envoyer le message avec le bouton "Accepter"
                 logging.info("📤 Envoi du message de bienvenue...")
