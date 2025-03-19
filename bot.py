@@ -42,14 +42,18 @@ user_welcome_messages = {}
 
 def get_mention(user):
     """Retourne @username si disponible, sinon affiche juste le prénom/nom sans lien."""
-    if user.username:
-        return f"@{user.username}"  # ✅ Affiche l'@username normalement
-    else:
-        # ✅ Affiche uniquement le prénom/nom sans lien, sans caractères spéciaux MarkdownV2
-        first_name = user.first_name if user.first_name else "Utilisateur"
-        clean_name = re.sub(r"([_*[\]()~`>#+-=|{}.!])", r"\\\1", first_name)  # Échapper MarkdownV2
-
-        return f"@{clean_name}"  # ✅ Ajoute @ devant le prénom/nom
+    try:
+        if user.username:
+            logging.info(f"ℹ️ Utilisateur trouvé avec username : @{user.username}")
+            return f"@{user.username}"
+        else:
+            first_name = user.first_name if user.first_name else "Utilisateur inconnu"
+            clean_name = re.sub(r"([_*[\]()~`>#+-=|{}.!])", r"\\\1", first_name)
+            logging.info(f"ℹ️ Utilisateur trouvé sans username, utilisant prénom : {clean_name}")
+            return f"@{clean_name}"
+    except Exception as e:
+        logging.error(f"❌ Erreur dans get_mention() : {e}")
+        return "@Utilisateur_Inconnu"
 
 
 # ✅ Fonction pour accueillir les nouveaux membres avec @username ou @NomPrenom
@@ -64,9 +68,12 @@ def get_mention(user):
 async def welcome_new_member(update: Update, context: CallbackContext) -> None:
     """Gère l'arrivée des nouveaux membres et affiche un bouton 'Accepter'."""
     if update.message and update.message.new_chat_members:
+        logging.info("🟠 Nouveau membre détecté dans le groupe.")
+
         for new_member in update.message.new_chat_members:
             try:
                 mention = get_mention(new_member)
+                logging.info(f"✅ Mention du nouveau membre : {mention}")
 
                 # ✅ Créer le bouton "Accepter"
                 keyboard = [[InlineKeyboardButton("✅ Accepter", callback_data=f"accept_{new_member.id}")]]
@@ -122,14 +129,20 @@ S'ils ne connaissent pas la réponse, vous serez redirigés vers un mufti franco
 """
 
                 # ✅ Envoyer le message avec le bouton "Accepter"
-                message = await update.message.reply_text(rules_message, parse_mode="MarkdownV2",
-                                                          reply_markup=reply_markup)
+                logging.info("📤 Envoi du message de bienvenue...")
+                message = await update.message.reply_text(
+                    rules_message,
+                    parse_mode="MarkdownV2",
+                    reply_markup=reply_markup
+                )
+                logging.info(f"✅ Message de bienvenue envoyé avec succès pour {mention}.")
 
                 # 🔹 Sauvegarder l'ID du message pour suppression plus tard
                 context.chat_data[new_member.id] = message.message_id
+                logging.info(f"📋 ID du message sauvegardé : {message.message_id}")
 
             except Exception as e:
-                logging.error(f"Erreur lors de l'envoi du message de bienvenue : {e}")
+                logging.error(f"❌ Erreur lors de l'envoi du message de bienvenue pour {mention} : {e}")
 
 
 async def button_click(update: Update, context: CallbackContext) -> None:
@@ -347,27 +360,43 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     if not match:
         # 🔴 Si pas de `#`, on force l'utilisateur à en mettre un et on avance immédiatement
         last_question_number[chat_id] = expected_number
+        logging.warning(
+            f"❗️ Message sans # détecté. Dernier numéro : {last_number}, Numéro attendu : {expected_number}")
+
         await update.message.reply_text(
-            f"{mention} As-salam aleykoum, il semble que vous ayez oublié d'inclure un numéro de question. Pourriez-vous, s'il vous plaît, ajouter #{expected_number} Baarak Allahu fik."
+            f"{mention} As-salam aleykoum, il semble que vous ayez oublié d'inclure un numéro de question. "
+            f"Pourriez-vous, s'il vous plaît, ajouter #{expected_number} ? Baarak Allahu fik."
         )
     else:
         # ✅ Extraire le numéro de la question
         question_number = int(match.group(1))
+        logging.info(
+            f"🔍 Numéro détecté : {question_number}, Dernier numéro connu : {last_number}, Numéro attendu : {expected_number}")
 
         # 🔴 Si le numéro est déjà utilisé ou en retard, on propose le prochain et on avance immédiatement
         if question_number < last_number:
             last_question_number[chat_id] = expected_number
+            logging.error(f"❌ Numéro déjà utilisé. Utilisateur : {mention}, Numéro utilisé : {question_number}, "
+                          f"Numéro attendu : {expected_number}")
+
             await update.message.reply_text(
-                f"{mention}  As-salam aleykoum, ce numéro semble déjà avoir été utilisé.  Je vous invite à utiliser plutôt #{expected_number}. Baarak Allahu fik."
+                f"{mention}  As-salam aleykoum, ce numéro semble déjà avoir été utilisé. "
+                f"Je vous invite à utiliser plutôt #{expected_number}. Baarak Allahu fik."
             )
+
         # 🔴 Si l'utilisateur saute un numéro, on avance immédiatement et on propose le bon
         elif question_number > expected_number:
             last_question_number[chat_id] = expected_number
+            logging.warning(f"⚠️ Numéro sauté. Utilisateur : {mention}, Numéro utilisé : {question_number}, "
+                            f"Numéro attendu : {expected_number}")
+
             await update.message.reply_text(
-                f"{mention} As-salam aleykoum, il semble que certains numéros aient été sautés. 😊 Je vous invite à utiliser le numéro #{expected_number}. Baarak Allahu fik."
+                f"{mention} As-salam aleykoum, il semble que certains numéros aient été sautés. 😊 "
+                f"Je vous invite à utiliser le numéro #{expected_number}. Baarak Allahu fik."
             )
+
+        # ✅ Si tout est correct, on enregistre la question et on avance
         else:
-            # ✅ Tout est correct, on enregistre la question et on avance
             last_question_number[chat_id] = question_number
             logging.info(f"✅ Nouvelle question enregistrée : {mention} a utilisé #{question_number} dans {chat_id}")
 
@@ -933,6 +962,7 @@ def main():
 
     # Vérification du format et de l'ordre des questions
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_question_number))
+    logging.info("✅ Handler `welcome_new_member` ajouté avec succès.")
 
     app.add_handler(CommandHandler("1", remove_excess_question))
     app.add_handler(CommandHandler("correction", correction))
