@@ -324,7 +324,9 @@ async def check_question_number(update: Update, context: CallbackContext) -> Non
     message_text = update.message.text.strip()
     chat_id = update.message.chat_id
     mention = get_mention(user)
+
     user_id = user.id
+
     current_time = time.time()
 
     # ✅ Vérifier si le bot a déjà initialisé le dernier numéro pour ce groupe
@@ -897,7 +899,7 @@ async def send_daily_message(context: CallbackContext) -> None:
         "Nous nous retrouvons ce jour par la Grâce d'Allah dans Q&R MALIKIYYAH, "
         "groupe dédié aux questions pratiques de fiqh, de 'aqiidah et de tasawwuf de la communauté musulmane ⭐️\n\n"
         "📌 **RAPPEL GÉNÉRAL** 📌\n\n"
-        "▪️ Respectez les [règles du groupe](https://t.me/c/1912372093/7898) \n"
+        "▪️ Respectez les [règles du groupe](https://t.me/c/1912372093/9137) \n"
         "▪️ Et surtout : étudiez la Science !\n"
         "👉 Remplissez cette obligation en suivant [des cours](https://majlisalfatih.weebly.com/cours.html)\n\n"
         "Baraak Allaahu fiikum !"
